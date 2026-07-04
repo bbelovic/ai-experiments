@@ -24,7 +24,30 @@ public final class App {
 
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode root = objectMapper.readTree(response.body());
-        root.path("fillings").path("recent");
+        var recent = root.path("filings").path("recent");
+
+        JsonNode forms = recent.path("form");
+        JsonNode filingDates = recent.path("filingDate");
+        JsonNode accessionNumbers = recent.path("accessionNumber");
+        JsonNode primaryDocuments = recent.path("primaryDocument");
+
+        for (var i = 0; i < forms.size(); i++) {
+            String formText = forms.get(i).asText();
+            if ("10-K".equals(formText) || "10-Q".equals(formText)) {
+                String accessionDateNoDash = accessionNumbers.get(i).asText()
+                        .replace("-", "");
+                String primaryDocument = primaryDocuments.get(i).asText();
+                String filingDate = filingDates.get(i).asText();
+
+                String filingUrl = "https://www.sec.gov/Archives/edgar/data/"
+                        + Long.parseLong(cik) + "/"
+                        + accessionDateNoDash + "/"
+                        + primaryDocument;
+
+                System.out.println(formText + " | " + filingDate + " | " + filingUrl);
+            }
+        }
+
     }
 
     private static HttpRequest get(String url) {
