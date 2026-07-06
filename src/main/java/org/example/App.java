@@ -24,10 +24,14 @@ public final class App {
 
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode root = objectMapper.readTree(response.body());
+        System.out.println(response.body());
         var recent = root.path("filings").path("recent");
 
+        JsonNode companyName = root.path("name");
+        String ticker = getTicker(root);
         JsonNode forms = recent.path("form");
         JsonNode filingDates = recent.path("filingDate");
+        JsonNode reportDates = recent.path("reportDate");
         JsonNode accessionNumbers = recent.path("accessionNumber");
         JsonNode primaryDocuments = recent.path("primaryDocument");
 
@@ -38,13 +42,16 @@ public final class App {
                         .replace("-", "");
                 String primaryDocument = primaryDocuments.get(i).asText();
                 String filingDate = filingDates.get(i).asText();
+                String reportDate = reportDates.get(i).asText();
 
                 String filingUrl = "https://www.sec.gov/Archives/edgar/data/"
                         + Long.parseLong(cik) + "/"
                         + accessionDateNoDash + "/"
                         + primaryDocument;
 
-                System.out.println(formText + " | " + filingDate + " | " + filingUrl);
+                System.out.println(cik + " | " + companyName.asText()  + " | " + ticker + " | " +
+                        formText + " | " + filingDate + " | " + reportDate + " | " + filingUrl);
+                new FormMetadata(cik, companyName.asText(), ticker, filingDate, reportDate, accessionDateNoDash, filingUrl);
             }
         }
 
@@ -58,7 +65,7 @@ public final class App {
                 .build();
     }
 
-    public static String greeting() {
-        return "Hello, Java 25";
+    public static String getTicker(JsonNode root) {
+        return root.path("tickers").get(0).asText();
     }
 }
