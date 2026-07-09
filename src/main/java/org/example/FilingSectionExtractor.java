@@ -31,12 +31,12 @@ public final class FilingSectionExtractor {
     );
 
     private static final List<SectionDefinition> TEN_Q_SECTIONS = List.of(
-            new SectionDefinition("PART I ITEM 1", "Financial Statements", Pattern.compile("\\bPART\\s+I\\b.*\\bITEM\\s+1\\b|\\bITEM\\s+1\\b")),
-            new SectionDefinition("PART I ITEM 2", "Management's Discussion and Analysis", Pattern.compile("\\bPART\\s+I\\b.*\\bITEM\\s+2\\b|\\bITEM\\s+2\\b")),
-            new SectionDefinition("PART I ITEM 3", "Quantitative and Qualitative Disclosures About Market Risk", Pattern.compile("\\bPART\\s+I\\b.*\\bITEM\\s+3\\b|\\bITEM\\s+3\\b")),
-            new SectionDefinition("PART I ITEM 4", "Controls and Procedures", Pattern.compile("\\bPART\\s+I\\b.*\\bITEM\\s+4\\b|\\bITEM\\s+4\\b")),
-            new SectionDefinition("PART II ITEM 1", "Legal Proceedings", Pattern.compile("\\bPART\\s+II\\b.*\\bITEM\\s+1\\b|\\bITEM\\s+1\\b")),
-            new SectionDefinition("PART II ITEM 1A", "Risk Factors", Pattern.compile("\\bPART\\s+II\\b.*\\bITEM\\s+1\\s*A\\b|\\bITEM\\s+1\\s*A\\b"))
+            new SectionDefinition("PART I ITEM 1", "Financial Statements", Pattern.compile("\\bITEM\\s+1\\b.*\\bFINANCIAL\\s+STATEMENTS\\b")),
+            new SectionDefinition("PART I ITEM 2", "Management's Discussion and Analysis", Pattern.compile("\\bITEM\\s+2\\b.*\\bMANAGEMENT'?S\\s+DISCUSSION\\s+AND\\s+ANALYSIS\\b")),
+            new SectionDefinition("PART I ITEM 3", "Quantitative and Qualitative Disclosures About Market Risk", Pattern.compile("\\bITEM\\s+3\\b.*\\bQUANTITATIVE\\s+AND\\s+QUALITATIVE\\s+DISCLOSURES\\s+ABOUT\\s+MARKET\\s+RISK\\b")),
+            new SectionDefinition("PART I ITEM 4", "Controls and Procedures", Pattern.compile("\\bITEM\\s+4\\b.*\\bCONTROLS\\s+AND\\s+PROCEDURES\\b")),
+            new SectionDefinition("PART II ITEM 1", "Legal Proceedings", Pattern.compile("\\bITEM\\s+1\\b.*\\bLEGAL\\s+PROCEEDINGS\\b")),
+            new SectionDefinition("PART II ITEM 1A", "Risk Factors", Pattern.compile("\\bITEM\\s+1\\s*A\\b.*\\bRISK\\s+FACTORS\\b"))
     );
 
     private final FilingTableExtractor tableExtractor = new FilingTableExtractor();
@@ -48,13 +48,15 @@ public final class FilingSectionExtractor {
         int tocEndIndex = estimateTableOfContentsEnd(orderedElements);
 
         List<SectionDefinition> definitions = "10-Q".equalsIgnoreCase(form) ? TEN_Q_SECTIONS : TEN_K_SECTIONS;
-        List<SectionMatch> matches = findOrderedMatches(definitions, candidates, tocEndIndex);
+        List<SectionMatch> matches = findOrderedMatches(definitions, candidates, tocEndIndex, orderedElements);
 
         List<FilingSection> sections = new ArrayList<>();
         for (int i = 0; i < matches.size(); i++) {
             SectionMatch current = matches.get(i);
             int start = current.elementIndex();
-            int end = i + 1 < matches.size() ? matches.get(i + 1).elementIndex() : orderedElements.size();
+            int end = i + 1 < matches.size()
+                    ? matches.get(i + 1).elementIndex()
+                    : nextHeadingIndex(candidates, start).orElse(orderedElements.size());
 
             String text = extractTextBetween(orderedElements, start, end);
             List<FilingTable> tables = tableExtractor.extractTablesBetween(orderedElements, start, end);
@@ -69,33 +71,86 @@ public final class FilingSectionExtractor {
         return sections;
     }
 
+    private Optional<Integer> nextHeadingIndex(List<HeadingCandidate> candidates, int afterIndex) {
+        return candidates.stream()
+                .map(HeadingCandidate::elementIndex)
+                .filter(index -> index > afterIndex)
+                .min(Integer::compareTo);
+    }
+
     private List<SectionMatch> findOrderedMatches(
             List<SectionDefinition> definitions,
             List<HeadingCandidate> candidates,
-            int tocEndIndex
+            int tocEndIndex,
+            List<Element> orderedElements
     ) {
-        List<SectionMatch> matches = new ArrayList<>();
-        int previousIndex = tocEndIndex;
+        List<SectionMatch> bestMatches = List.of();
+        int bestScore = -1;
 
-        for (SectionDefinition definition : definitions) {
-            Optional<HeadingCandidate> match = Optional.empty();
-            for (HeadingCandidate candidate : candidates) {
-                if (candidate.elementIndex() > previousIndex && definition.matches(candidate.normalizedText())) {
-                    match = Optional.of(candidate);
-                    break;
+        for (int definitionIndex = 0; definitionIndex < definitions.size(); definitionIndex++) {
+            SectionDefinition startingDefinition = definitions.get(definitionIndex);
+            for (HeadingCandidate startingCandidate : candidates) {
+                if (startingCandidate.elementIndex() <= tocEndIndex
+                        || !startingDefinition.matches(startingCandidate.normalizedText())) {
+                    continue;
+                }
+                List<SectionMatch> matches = buildGreedySequence(
+                        definitions,
+                        candidates,
+                        definitionIndex,
+                        startingCandidate
+                );
+                int score = scoreMatches(matches, orderedElements);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatches = matches;
                 }
             }
+        }
 
-            if (match.isPresent()) {
-                HeadingCandidate candidate = match.get();
-                matches.add(new SectionMatch(definition, candidate.element(), candidate.elementIndex()));
-                previousIndex = candidate.elementIndex();
-            } else {
+        for (SectionDefinition definition : definitions) {
+            boolean found = bestMatches.stream().anyMatch(match -> match.definition().equals(definition));
+            if (!found) {
                 LOGGER.fine(() -> "Missing expected filing section: " + definition.code() + " " + definition.title());
             }
         }
 
+        return bestMatches;
+    }
+
+    private List<SectionMatch> buildGreedySequence(
+            List<SectionDefinition> definitions,
+            List<HeadingCandidate> candidates,
+            int startingDefinitionIndex,
+            HeadingCandidate startingCandidate
+    ) {
+        List<SectionMatch> matches = new ArrayList<>();
+        SectionDefinition startingDefinition = definitions.get(startingDefinitionIndex);
+        matches.add(new SectionMatch(startingDefinition, startingCandidate.element(), startingCandidate.elementIndex()));
+
+        int previousIndex = startingCandidate.elementIndex();
+        for (int i = startingDefinitionIndex + 1; i < definitions.size(); i++) {
+            SectionDefinition definition = definitions.get(i);
+            for (HeadingCandidate candidate : candidates) {
+                if (candidate.elementIndex() > previousIndex && definition.matches(candidate.normalizedText())) {
+                    matches.add(new SectionMatch(definition, candidate.element(), candidate.elementIndex()));
+                    previousIndex = candidate.elementIndex();
+                    break;
+                }
+            }
+        }
+
         return matches;
+    }
+
+    private int scoreMatches(List<SectionMatch> matches, List<Element> orderedElements) {
+        int score = 0;
+        for (int i = 0; i < matches.size(); i++) {
+            int start = matches.get(i).elementIndex();
+            int end = i + 1 < matches.size() ? matches.get(i + 1).elementIndex() : orderedElements.size();
+            score += Math.min(extractTextBetween(orderedElements, start, end).length(), 20_000);
+        }
+        return score;
     }
 
     private List<HeadingCandidate> findHeadingCandidates(List<Element> orderedElements, Map<Element, Integer> elementIndexes) {
@@ -116,7 +171,10 @@ public final class FilingSectionExtractor {
         List<String> paragraphs = new ArrayList<>();
         for (int i = startExclusive + 1; i < endExclusive; i++) {
             Element element = orderedElements.get(i);
-            if (!isTextBlock(element) || hasBlockChild(element) || hasAncestor(element, "table")) {
+            if (!isTextBlock(element)
+                    || hasBlockChild(element)
+                    || hasAncestor(element, "table")
+                    || hasAncestorWithSameText(element)) {
                 continue;
             }
             String text = FilingHtmlCleaner.normalizedText(element);
