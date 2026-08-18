@@ -28,6 +28,13 @@ public final class DividendWatchCrawler {
         return new DividendWatchCrawler(CrawlerConfig.fromEnvironment());
     }
 
+    public void setCookies(Map<String, String> cookies) {
+        this.cookies.clear();
+        if (cookies != null) {
+            this.cookies.putAll(cookies);
+        }
+    }
+
     public LoginResult login() throws IOException {
         Connection.Response loginPage = connection(config.loginUrl())
                 .method(Connection.Method.GET)
@@ -174,7 +181,7 @@ public final class DividendWatchCrawler {
         public static CrawlerConfig fromEnvironment() {
             String baseUrl = env("DIVIDENDWATCH_BASE_URL", DEFAULT_BASE_URL);
             return new CrawlerConfig(
-                    env("DIVIDENDWATCH_LOGIN_URL", baseUrl + "/login"),
+                    env("DIVIDENDWATCH_LOGIN_URL", baseUrl + "/tracker"),
                     env("DIVIDENDWATCH_USERNAME_FIELD", "email"),
                     env("DIVIDENDWATCH_PASSWORD_FIELD", "password"),
                     requiredEnv("DIVIDENDWATCH_USERNAME"),

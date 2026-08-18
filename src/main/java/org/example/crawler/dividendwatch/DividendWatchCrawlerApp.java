@@ -8,9 +8,18 @@ public final class DividendWatchCrawlerApp {
 
     public static void main(String[] args) throws Exception {
         DividendWatchCrawler crawler = DividendWatchCrawler.fromEnvironment();
-        DividendWatchCrawler.LoginResult login = crawler.login();
-        if (!login.successful()) {
-            throw new IllegalStateException("Dividend Watch login failed. Final URL: " + login.finalUrl());
+        String loginMode = env("DIVIDENDWATCH_LOGIN_MODE", "browser");
+        if ("browser".equalsIgnoreCase(loginMode)) {
+            DividendWatchBrowserLogin.BrowserLoginResult login = DividendWatchBrowserLogin.fromEnvironment().login();
+            if (!login.successful()) {
+                throw new IllegalStateException("Dividend Watch browser login failed. Final URL: " + login.finalUrl());
+            }
+            crawler.setCookies(login.cookies());
+        } else {
+            DividendWatchCrawler.LoginResult login = crawler.login();
+            if (!login.successful()) {
+                throw new IllegalStateException("Dividend Watch login failed. Final URL: " + login.finalUrl());
+            }
         }
 
         String downloadUrl = System.getenv("DIVIDENDWATCH_DOWNLOAD_URL");

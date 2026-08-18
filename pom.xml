@@ -13,6 +13,7 @@
         <junit.jupiter.version>5.13.3</junit.jupiter.version>
         <assertj.version>3.27.7</assertj.version>
         <jackson.version>2.19.2</jackson.version>
+        <playwright.version>1.61.0</playwright.version>
     </properties>
 
     <dependencies>
@@ -25,6 +26,11 @@
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
             <version>1.17.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.microsoft.playwright</groupId>
+            <artifactId>playwright</artifactId>
+            <version>${playwright.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
