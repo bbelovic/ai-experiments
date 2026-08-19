@@ -1,25 +1,44 @@
 package org.example.crawler.dividendwatch;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.BrowserType;
+import com.microsoft.playwright.Download;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.PlaywrightException;
 import com.microsoft.playwright.options.Cookie;
 import com.microsoft.playwright.options.LoadState;
+import com.microsoft.playwright.options.SelectOption;
 import com.microsoft.playwright.options.WaitForSelectorState;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public final class DividendWatchBrowserLogin {
+    private static final List<String> STATEMENT_NAMES = List.of(
+            "Income Statement",
+            "Balance Sheet",
+            "Cash Flow Statement"
+    );
+
     private final BrowserLoginConfig config;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @FunctionalInterface
+    private interface PageOperation<T> {
+        T apply(Page page, BrowserContext context) throws IOException;
+    }
 
     public DividendWatchBrowserLogin(BrowserLoginConfig config) {
         this.config = config;
@@ -30,64 +49,296 @@ public final class DividendWatchBrowserLogin {
     }
 
     public BrowserLoginResult login() {
-        try (Playwright playwright = Playwright.create()) {
-            BrowserType.LaunchOptions launchOptions = new BrowserType.LaunchOptions()
-                    .setHeadless(config.headless());
-            if (config.browserExecutablePath() != null && !config.browserExecutablePath().isBlank()) {
-                launchOptions.setExecutablePath(Path.of(config.browserExecutablePath()));
+        return withAuthenticatedPage((page, context) -> {
+            Map<String, String> cookies = toCookieMap(context.cookies());
+            boolean loginFormStillVisible = hasVisible(page, config.usernameSelector())
+                    && hasVisible(page, config.passwordSelector());
+            return new BrowserLoginResult(!loginFormStillVisible, page.url(), cookies);
+        });
+    }
+
+    public String scrapeText(String url, String cssSelector) {
+        return withAuthenticatedPage((page, context) -> {
+            if (!sameUrl(page.url(), url)) {
+                page.navigate(url);
+                waitForDom(page);
+                page.waitForTimeout(config.postLoginSettle().toMillis());
             }
+            page.waitForSelector(cssSelector, new Page.WaitForSelectorOptions()
+                    .setTimeout(config.timeout().toMillis()));
+            debug(page, "scraped " + url);
+            return page.locator(cssSelector).first().textContent();
+        });
+    }
+
+    public Path download(String url, Path target) throws IOException {
+        return withAuthenticatedPage((page, context) -> {
+            Path parent = target.toAbsolutePath().getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Download download = page.waitForDownload(() -> page.navigate(url));
+            download.saveAs(target);
+            debug(page, "downloaded " + url + " to " + target.toAbsolutePath());
+            return target;
+        });
+    }
+
+    public DividendWatchFinancialStatements scrapeFinancialStatements(String ticker) {
+        String normalizedTicker = ticker.trim().toUpperCase();
+        return withAuthenticatedPage((page, context) -> {
+            openStockPage(page, normalizedTicker);
+            openFundamentals(page);
+
+            List<DividendWatchFinancialStatements.StatementTable> statements = new ArrayList<>();
+            for (String statementName : STATEMENT_NAMES) {
+                selectStatement(page, statementName);
+                statements.add(extractVisibleStatementTable(page, statementName));
+            }
+
+            return new DividendWatchFinancialStatements(normalizedTicker, page.url(), List.copyOf(statements));
+        });
+    }
+
+    private void openStockPage(Page page, String ticker) {
+        waitForVisibleOrThrow(page, "#stock-search-navbar-input", "stock search field");
+        Locator search = page.locator("#stock-search-navbar-input").first();
+        search.fill(ticker);
+        page.waitForTimeout(1_000);
+
+        Locator tickerLink = page.locator("a:has-text('" + ticker + "')").first();
+        if (tickerLink.count() > 0 && tickerLink.isVisible()) {
+            tickerLink.click();
+        } else {
+            search.press("Enter");
+        }
+
+        waitForDom(page);
+        waitForTextOrThrow(page, ticker, "stock page for " + ticker);
+        page.waitForTimeout(config.postLoginSettle().toMillis());
+        debug(page, "opened stock page for " + ticker + " at " + page.url());
+    }
+
+    private void openFundamentals(Page page) {
+        clickFirstPresent(page, List.of(
+                "a:has-text('Fundamentals')",
+                "button:has-text('Fundamentals')",
+                "text=Fundamentals"
+        ));
+        waitForDom(page);
+        waitForVisibleOrThrow(page, "#financial-statement-select-toggle-button", "fundamentals statement selector");
+        clickIfVisible(page, "button:has-text('Annual')");
+        page.waitForTimeout(config.postLoginSettle().toMillis());
+        debug(page, "opened fundamentals at " + page.url());
+    }
+
+    private void selectStatement(Page page, String statementName) {
+        Locator nativeSelect = page.locator("select").filter(new Locator.FilterOptions().setHasText(statementName)).first();
+        if (nativeSelect.count() > 0 && nativeSelect.isVisible()) {
+            nativeSelect.selectOption(new SelectOption().setLabel(statementName));
+        } else {
+            clickFirstPresent(page, List.of(
+                    "#financial-statement-select-toggle-button",
+                    "button:has-text('Income Statement')",
+                    "button:has-text('Balance Sheet')",
+                    "button:has-text('Cash Flow Statement')",
+                    "[role='button']:has-text('Income Statement')",
+                    "[role='button']:has-text('Balance Sheet')",
+                    "[role='button']:has-text('Cash Flow Statement')"
+            ));
+            clickFirstPresent(page, List.of(
+                    "[role='option']:has-text('" + statementName + "')",
+                    "[role='menuitem']:has-text('" + statementName + "')",
+                    "li:has-text('" + statementName + "')",
+                    "button:has-text('" + statementName + "')"
+            ));
+        }
+        waitForDom(page);
+        waitForVisibleOrThrow(page, "#financial-statement-select-toggle-button:has-text('" + statementName + "')",
+                statementName + " selection");
+        page.waitForTimeout(1_000);
+        debug(page, "selected " + statementName);
+    }
+
+    private DividendWatchFinancialStatements.StatementTable extractVisibleStatementTable(Page page, String statementName) throws IOException {
+        String json = page.locator("body").evaluate("""
+                () => {
+                    const visible = element => {
+                        const style = window.getComputedStyle(element);
+                        const rect = element.getBoundingClientRect();
+                        return style.visibility !== 'hidden'
+                            && style.display !== 'none'
+                            && rect.width > 0
+                            && rect.height > 0;
+                    };
+                    const text = element => (element.innerText || element.textContent || '')
+                        .replace(/\\u00a0/g, ' ')
+                        .replace(/\\s+/g, ' ')
+                        .trim();
+                    const score = table => {
+                        const rows = Array.from(table.querySelectorAll('tr'))
+                            .map(row => Array.from(row.querySelectorAll('th,td')).map(text).filter(Boolean));
+                        const all = rows.flat().join(' ');
+                        const metric = /Metric/.test(all) ? 100 : 0;
+                        const years = (all.match(/\\b20\\d{2}\\b/g) || []).length;
+                        return metric + years + rows.length;
+                    };
+                    const extractFromTable = table => Array.from(table.querySelectorAll('tr'))
+                        .map(row => Array.from(row.querySelectorAll('th,td')).map(text).filter(Boolean))
+                        .filter(row => row.length > 1);
+                    const tables = Array.from(document.querySelectorAll('table')).filter(visible);
+                    if (tables.length > 0) {
+                        const best = tables.sort((a, b) => score(b) - score(a))[0];
+                        return JSON.stringify(extractFromTable(best));
+                    }
+
+                    const roleRows = Array.from(document.querySelectorAll('[role="row"]')).filter(visible);
+                    const rows = roleRows
+                        .map(row => Array.from(row.querySelectorAll('[role="cell"],[role="columnheader"],[role="rowheader"],div,span'))
+                            .filter(visible)
+                            .map(text)
+                            .filter(Boolean)
+                            .filter((value, index, values) => values.indexOf(value) === index))
+                        .filter(row => row.length > 1);
+                    return JSON.stringify(rows);
+                }
+                """).toString();
+
+        List<List<String>> rows = objectMapper.readValue(json, new TypeReference<>() {
+        });
+        if (rows.isEmpty()) {
+            throw new IllegalStateException("Could not extract visible table rows for " + statementName);
+        }
+
+        List<String> periods = periodsFrom(rows.getFirst());
+        List<DividendWatchFinancialStatements.StatementRow> statementRows = new ArrayList<>();
+        for (List<String> row : rows.subList(1, rows.size())) {
+            if (row.isEmpty() || row.getFirst().isBlank()) {
+                continue;
+            }
+            Map<String, String> values = new LinkedHashMap<>();
+            for (int i = 0; i < periods.size(); i++) {
+                int cellIndex = i + 1;
+                values.put(periods.get(i), cellIndex < row.size() ? row.get(cellIndex) : "");
+            }
+            statementRows.add(new DividendWatchFinancialStatements.StatementRow(
+                    row.getFirst(),
+                    Collections.unmodifiableMap(new LinkedHashMap<>(values))
+            ));
+        }
+
+        return new DividendWatchFinancialStatements.StatementTable(statementName, periods, List.copyOf(statementRows));
+    }
+
+    private List<String> periodsFrom(List<String> header) {
+        List<String> periods = new ArrayList<>();
+        for (String cell : header) {
+            if (cell.matches("\\b20\\d{2}\\b") || cell.matches("\\b19\\d{2}\\b")) {
+                periods.add(cell);
+            }
+        }
+        if (!periods.isEmpty()) {
+            return List.copyOf(periods);
+        }
+        return header.size() <= 1 ? List.of() : List.copyOf(header.subList(1, header.size()));
+    }
+
+    private <T> T withAuthenticatedPage(PageOperation<T> operation) {
+        try (Playwright playwright = Playwright.create()) {
+            BrowserType.LaunchOptions launchOptions = launchOptions();
             try (Browser browser = playwright.chromium().launch(launchOptions)) {
                 BrowserContext context = browser.newContext();
                 Page page = context.newPage();
                 page.setDefaultTimeout(config.timeout().toMillis());
-                page.navigate(config.loginUrl());
-                waitForDom(page);
-                debug(page, "opened " + page.url());
-
-                if (!waitForVisible(page, config.usernameSelector(), 5_000)) {
-                    clickIfPresent(page, config.signInSelector());
-                }
-                if (!waitForVisible(page, config.usernameSelector(), 2_000)) {
-                    clickFirstPresent(page, List.of(
-                            "a:has-text('Sign in')",
-                            "button:has-text('Sign in')",
-                            "a:has-text('Log in')",
-                            "button:has-text('Log in')",
-                            "text=Sign in",
-                            "text=Log in"
-                    ));
-                }
-                waitForVisibleOrThrow(page, config.usernameSelector(), "username field");
-                debug(page, "found username field at " + page.url());
-                fill(page, config.usernameSelector(), config.username());
-                debug(page, "filled username");
-                waitForVisibleOrThrow(page, config.passwordSelector(), "password field");
-                fill(page, config.passwordSelector(), config.password());
-                debug(page, "filled password");
-
-                if (config.submitSelector() == null || config.submitSelector().isBlank()) {
-                    page.locator(config.passwordSelector()).press("Enter");
-                } else {
-                    clickFirstPresent(page, List.of(
-                            config.submitSelector(),
-                            "button:has-text('Sign in')",
-                            "button:has-text('Log in')",
-                            "input[type='submit']"
-                    ));
-                }
-                debug(page, "submitted login");
-
-                waitForDom(page);
-                if (config.postLoginUrl() != null && !config.postLoginUrl().isBlank()) {
-                    page.navigate(config.postLoginUrl());
-                    waitForDom(page);
-                }
-                debug(page, "login ended at " + page.url());
-
-                Map<String, String> cookies = toCookieMap(context.cookies());
-                return new BrowserLoginResult(!cookies.isEmpty(), page.url(), cookies);
+                attachDiagnostics(page);
+                authenticate(page);
+                return operation.apply(page, context);
             }
+        } catch (IOException exception) {
+            throw new IllegalStateException("Dividend Watch browser operation failed", exception);
         }
+    }
+
+    private BrowserType.LaunchOptions launchOptions() {
+        BrowserType.LaunchOptions launchOptions = new BrowserType.LaunchOptions()
+                .setHeadless(config.headless());
+        if (config.browserExecutablePath() != null && !config.browserExecutablePath().isBlank()) {
+            launchOptions.setExecutablePath(Path.of(config.browserExecutablePath()));
+        }
+        return launchOptions;
+    }
+
+    private void authenticate(Page page) {
+        page.navigate(config.loginUrl());
+        waitForDom(page);
+        debug(page, "opened " + page.url());
+        clickIfPresent(page, config.cookieAcceptSelector());
+
+        if (!waitForVisible(page, config.usernameSelector(), 5_000)) {
+            clickIfPresent(page, config.signInSelector());
+        }
+        if (!waitForVisible(page, config.usernameSelector(), 2_000)) {
+            clickFirstPresent(page, List.of(
+                    "a:has-text('Sign in')",
+                    "button:has-text('Sign in')",
+                    "a:has-text('Log in')",
+                    "button:has-text('Log in')",
+                    "text=Sign in",
+                    "text=Log in"
+            ));
+        }
+        waitForVisibleOrThrow(page, config.usernameSelector(), "username field");
+        debug(page, "found username field at " + page.url());
+        fill(page, config.usernameSelector(), config.username());
+        debug(page, "filled username");
+        waitForVisibleOrThrow(page, config.passwordSelector(), "password field");
+        fill(page, config.passwordSelector(), config.password());
+        debug(page, "filled password");
+
+        if (config.submitSelector() == null || config.submitSelector().isBlank()) {
+            page.locator(config.passwordSelector()).press("Enter");
+        } else {
+            clickFirstPresent(page, List.of(
+                    config.submitSelector(),
+                    "button:has-text('Sign in')",
+                    "button:has-text('Log in')",
+                    "input[type='submit']"
+            ));
+        }
+        debug(page, "submitted login");
+
+        waitForDom(page);
+        waitForLoginToFinish(page);
+        if (config.postLoginUrl() != null && !config.postLoginUrl().isBlank()) {
+            page.navigate(config.postLoginUrl());
+            waitForDom(page);
+        }
+        page.waitForTimeout(config.postLoginSettle().toMillis());
+        debug(page, "login ended at " + page.url());
+        debug(page, "visible controls after login:\n" + visibleControls(page));
+    }
+
+    private void attachDiagnostics(Page page) {
+        if (!config.debug()) {
+            return;
+        }
+        page.onConsoleMessage(message -> {
+            if ("error".equals(message.type()) || "warning".equals(message.type())) {
+                System.err.println("[dividendwatch][console][" + message.type() + "] " + message.text());
+            }
+        });
+        page.onResponse(response -> {
+            String url = response.url();
+            if (url.contains("dividend.watch")
+                    || url.contains("/api/")
+                    || url.contains("supabase")
+                    || url.contains("firebase")
+                    || url.contains("auth")) {
+                System.err.println("[dividendwatch][response] " + response.status() + " " + url);
+            }
+        });
+        page.onRequestFailed(request -> System.err.println(
+                "[dividendwatch][request-failed] " + request.method() + " " + request.url() + " " + request.failure()));
     }
 
     private void clickIfPresent(Page page, String selector) {
@@ -96,6 +347,18 @@ public final class DividendWatchBrowserLogin {
         }
         Locator locator = page.locator(selector).first();
         if (locator.count() > 0) {
+            locator.click();
+            waitForDom(page);
+            debug(page, "clicked " + selector);
+        }
+    }
+
+    private void clickIfVisible(Page page, String selector) {
+        if (selector == null || selector.isBlank()) {
+            return;
+        }
+        Locator locator = page.locator(selector).first();
+        if (locator.count() > 0 && locator.isVisible()) {
             locator.click();
             waitForDom(page);
             debug(page, "clicked " + selector);
@@ -155,8 +418,55 @@ public final class DividendWatchBrowserLogin {
         }
     }
 
+    private void waitForTextOrThrow(Page page, String text, String description) {
+        if (!waitForVisible(page, "text=" + text, config.timeout().toMillis())) {
+            throw new IllegalStateException("""
+                    Could not find %s.
+                    Current URL: %s
+                    Expected text: %s
+                    Visible controls:
+                    %s
+                    """.formatted(description, page.url(), text, visibleControls(page)));
+        }
+    }
+
+    private void waitForLoginToFinish(Page page) {
+        try {
+            page.waitForFunction("""
+                    ([usernameSelector, passwordSelector]) => {
+                        const visible = selector => {
+                            const element = document.querySelector(selector);
+                            if (!element) {
+                                return false;
+                            }
+                            const style = window.getComputedStyle(element);
+                            const rect = element.getBoundingClientRect();
+                            return style.visibility !== 'hidden'
+                                && style.display !== 'none'
+                                && rect.width > 0
+                                && rect.height > 0;
+                        };
+                        return !visible(usernameSelector) || !visible(passwordSelector);
+                    }
+                    """, List.of(config.usernameSelector(), config.passwordSelector()),
+                    new Page.WaitForFunctionOptions().setTimeout(config.timeout().toMillis()));
+        } catch (PlaywrightException exception) {
+            debug(page, "login form still visible after submit");
+        }
+    }
+
     private void waitForDom(Page page) {
         page.waitForLoadState(LoadState.DOMCONTENTLOADED);
+    }
+
+    private boolean sameUrl(String currentUrl, String requestedUrl) {
+        String current = stripTrailingSlash(currentUrl);
+        String requested = stripTrailingSlash(requestedUrl);
+        return current.equals(requested);
+    }
+
+    private String stripTrailingSlash(String url) {
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
     private String visibleControls(Page page) {
@@ -228,6 +538,8 @@ public final class DividendWatchBrowserLogin {
             String submitSelector,
             String postLoginUrl,
             String browserExecutablePath,
+            String cookieAcceptSelector,
+            Duration postLoginSettle,
             boolean debug,
             boolean headless,
             Duration timeout
@@ -253,6 +565,8 @@ public final class DividendWatchBrowserLogin {
                     env("DIVIDENDWATCH_SUBMIT_SELECTOR", "button[type='submit'], input[type='submit']"),
                     System.getenv("DIVIDENDWATCH_POST_LOGIN_URL"),
                     System.getenv("DIVIDENDWATCH_BROWSER_EXECUTABLE_PATH"),
+                    env("DIVIDENDWATCH_COOKIE_ACCEPT_SELECTOR", "button:has-text('Accept cookies')"),
+                    Duration.ofSeconds(Long.parseLong(env("DIVIDENDWATCH_POST_LOGIN_SETTLE_SECONDS", "5"))),
                     Boolean.parseBoolean(env("DIVIDENDWATCH_DEBUG", "false")),
                     Boolean.parseBoolean(env("DIVIDENDWATCH_HEADLESS", "true")),
                     Duration.ofSeconds(Long.parseLong(env("DIVIDENDWATCH_TIMEOUT_SECONDS", "30")))
