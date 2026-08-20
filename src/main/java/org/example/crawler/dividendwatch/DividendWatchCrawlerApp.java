@@ -10,32 +10,6 @@ public final class DividendWatchCrawlerApp {
     }
 
     public static void main(String[] args) throws Exception {
-        String loginMode = env("DIVIDENDWATCH_LOGIN_MODE", "browser");
-        if ("browser".equalsIgnoreCase(loginMode)) {
-            runWithBrowser(args);
-            return;
-        }
-
-        DividendWatchCrawler crawler = DividendWatchCrawler.fromEnvironment();
-        DividendWatchCrawler.LoginResult login = crawler.login();
-        if (!login.successful()) {
-            throw new IllegalStateException("Dividend Watch login failed. Final URL: " + login.finalUrl());
-        }
-
-        String downloadUrl = System.getenv("DIVIDENDWATCH_DOWNLOAD_URL");
-        if (downloadUrl != null && !downloadUrl.isBlank()) {
-            String target = env("DIVIDENDWATCH_DOWNLOAD_TARGET", "build/dividendwatch-download");
-            Path downloaded = crawler.download(downloadUrl, Path.of(target));
-            System.out.println("Downloaded " + downloadUrl + " to " + downloaded.toAbsolutePath());
-            return;
-        }
-
-        String scrapeUrl = env("DIVIDENDWATCH_SCRAPE_URL", DividendWatchCrawler.DEFAULT_BASE_URL + "/tracker");
-        String scrapeSelector = env("DIVIDENDWATCH_SCRAPE_SELECTOR", "body");
-        System.out.println(crawler.scrapeText(scrapeUrl, scrapeSelector));
-    }
-
-    private static void runWithBrowser(String[] args) throws Exception {
         DividendWatchBrowserLogin browser = DividendWatchBrowserLogin.fromEnvironment();
         String ticker = stockTicker(args);
         if (ticker != null) {
@@ -64,7 +38,7 @@ public final class DividendWatchCrawlerApp {
             return;
         }
 
-        String scrapeUrl = env("DIVIDENDWATCH_SCRAPE_URL", DividendWatchCrawler.DEFAULT_BASE_URL + "/tracker");
+        String scrapeUrl = env("DIVIDENDWATCH_SCRAPE_URL", DividendWatchBrowserLogin.DEFAULT_BASE_URL + "/tracker");
         String scrapeSelector = env("DIVIDENDWATCH_SCRAPE_SELECTOR", "body");
         System.out.println(browser.scrapeText(scrapeUrl, scrapeSelector));
     }

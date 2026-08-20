@@ -1,6 +1,7 @@
 package org.example.crawler.dividendwatch;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
@@ -16,6 +17,7 @@ import com.microsoft.playwright.options.SelectOption;
 import com.microsoft.playwright.options.WaitForSelectorState;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -24,8 +26,11 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public final class DividendWatchBrowserLogin {
+    public static final String DEFAULT_BASE_URL = "https://dividend.watch";
+
     private static final List<String> STATEMENT_NAMES = List.of(
             "Income Statement",
             "Balance Sheet",
@@ -104,19 +109,128 @@ public final class DividendWatchBrowserLogin {
         waitForVisibleOrThrow(page, "#stock-search-navbar-input", "stock search field");
         Locator search = page.locator("#stock-search-navbar-input").first();
         search.fill(ticker);
-        page.waitForTimeout(1_000);
 
-        Locator tickerLink = page.locator("a:has-text('" + ticker + "')").first();
-        if (tickerLink.count() > 0 && tickerLink.isVisible()) {
-            tickerLink.click();
+        String stockPath = findStockPathFromSearchApi(page, ticker);
+        if (stockPath != null) {
+            page.navigate(origin(page.url()) + stockPath);
+        } else if (clickSearchResult(page, ticker)) {
+            // Navigation is triggered by the click.
         } else {
             search.press("Enter");
         }
 
         waitForDom(page);
-        waitForTextOrThrow(page, ticker, "stock page for " + ticker);
+        waitForStockPageOrThrow(page, ticker);
         page.waitForTimeout(config.postLoginSettle().toMillis());
         debug(page, "opened stock page for " + ticker + " at " + page.url());
+    }
+
+    private String findStockPathFromSearchApi(Page page, String ticker) {
+        try {
+            String json = page.evaluate("""
+                    async ticker => {
+                        const response = await fetch('/api/search?query=' + encodeURIComponent(ticker), {
+                            credentials: 'include'
+                        });
+                        return await response.text();
+                    }
+                    """, ticker).toString();
+            JsonNode root = objectMapper.readTree(json);
+            return findStockPath(root, ticker).orElse(null);
+        } catch (RuntimeException | IOException exception) {
+            debug(page, "could not resolve stock path from search API: " + exception.getMessage());
+            return null;
+        }
+    }
+
+    private Optional<String> findStockPath(JsonNode node, String ticker) {
+        String normalizedTicker = ticker.toLowerCase();
+        if (node.isObject()) {
+            Optional<String> directPath = stringFields(node)
+                    .filter(value -> value.matches("(?i).*/symbol/" + normalizedTicker + "-[a-z0-9.]+.*"))
+                    .map(value -> value.replaceFirst("(?i)^https?://[^/]+", ""))
+                    .findFirst();
+            if (directPath.isPresent()) {
+                return directPath;
+            }
+
+            Optional<String> slug = stringFields(node)
+                    .filter(value -> value.matches("(?i)" + normalizedTicker + "-[a-z0-9.]+"))
+                    .findFirst();
+            if (slug.isPresent() && objectMentionsTicker(node, ticker)) {
+                return Optional.of("/symbol/" + slug.get().toLowerCase());
+            }
+
+            String exchange = textField(node, "exchange")
+                    .or(() -> textField(node, "market"))
+                    .or(() -> textField(node, "exchangeCode"))
+                    .orElse("");
+            if (!exchange.isBlank() && objectMentionsTicker(node, ticker)) {
+                return Optional.of("/symbol/" + normalizedTicker + "-" + exchange.toLowerCase());
+            }
+        }
+
+        if (node.isContainerNode()) {
+            for (JsonNode child : node) {
+                Optional<String> path = findStockPath(child, ticker);
+                if (path.isPresent()) {
+                    return path;
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private boolean objectMentionsTicker(JsonNode object, String ticker) {
+        String normalizedTicker = ticker.toUpperCase();
+        return stringFields(object)
+                .anyMatch(value -> value.equalsIgnoreCase(normalizedTicker)
+                        || value.toUpperCase().startsWith(normalizedTicker + "-"));
+    }
+
+    private java.util.stream.Stream<String> stringFields(JsonNode object) {
+        List<String> values = new ArrayList<>();
+        object.fields().forEachRemaining(entry -> {
+            if (entry.getValue().isTextual()) {
+                values.add(entry.getValue().asText());
+            }
+        });
+        return values.stream();
+    }
+
+    private Optional<String> textField(JsonNode object, String fieldName) {
+        JsonNode value = object.path(fieldName);
+        return value.isTextual() && !value.asText().isBlank()
+                ? Optional.of(value.asText())
+                : Optional.empty();
+    }
+
+    private boolean clickSearchResult(Page page, String ticker) {
+        page.waitForTimeout(1_500);
+
+        Locator tickerLink = page.locator("a:has-text('" + ticker + "')").first();
+        if (tickerLink.count() > 0 && tickerLink.isVisible()) {
+            tickerLink.click();
+            return true;
+        }
+
+        Locator result = page.locator("""
+                div:has-text('%s'),
+                li:has-text('%s'),
+                [role='option']:has-text('%s'),
+                [role='menuitem']:has-text('%s')
+                """.formatted(ticker, ticker, ticker, ticker)).first();
+        if (result.count() > 0 && result.isVisible()) {
+            result.click();
+            return true;
+        }
+
+        return false;
+    }
+
+    private String origin(String url) {
+        URI uri = URI.create(url);
+        return uri.getScheme() + "://" + uri.getHost();
     }
 
     private void openFundamentals(Page page) {
@@ -162,7 +276,7 @@ public final class DividendWatchBrowserLogin {
 
     private DividendWatchFinancialStatements.StatementTable extractVisibleStatementTable(Page page, String statementName) throws IOException {
         String json = page.locator("body").evaluate("""
-                () => {
+                async () => {
                     const visible = element => {
                         const style = window.getComputedStyle(element);
                         const rect = element.getBoundingClientRect();
@@ -189,7 +303,76 @@ public final class DividendWatchBrowserLogin {
                     const tables = Array.from(document.querySelectorAll('table')).filter(visible);
                     if (tables.length > 0) {
                         const best = tables.sort((a, b) => score(b) - score(a))[0];
-                        return JSON.stringify(extractFromTable(best));
+                        const scroller = (() => {
+                            let current = best.parentElement;
+                            while (current && current !== document.body) {
+                                if (current.scrollWidth > current.clientWidth + 8) {
+                                    return current;
+                                }
+                                current = current.parentElement;
+                            }
+                            return best.scrollWidth > best.clientWidth + 8 ? best : null;
+                        })();
+                        if (!scroller) {
+                            return JSON.stringify(extractFromTable(best));
+                        }
+
+                        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+                        const mergedPeriods = [];
+                        const rowsByMetric = new Map();
+                        const originalScrollLeft = scroller.scrollLeft;
+                        const step = Math.max(120, Math.floor(scroller.clientWidth * 0.75));
+                        const positions = [];
+                        for (let position = 0; position <= scroller.scrollWidth - scroller.clientWidth; position += step) {
+                            positions.push(position);
+                        }
+                        positions.push(scroller.scrollWidth);
+
+                        for (const position of positions) {
+                            scroller.scrollLeft = position;
+                            await wait(250);
+                            const slice = extractFromTable(best);
+                            if (slice.length === 0) {
+                                continue;
+                            }
+                            const periods = slice[0]
+                                .filter(cell => /\\b(19|20)\\d{2}\\b/.test(cell))
+                                .map(cell => cell.match(/\\b(19|20)\\d{2}\\b/)[0]);
+                            if (periods.length === 0) {
+                                continue;
+                            }
+                            for (const period of periods) {
+                                if (!mergedPeriods.includes(period)) {
+                                    mergedPeriods.push(period);
+                                }
+                            }
+                            for (const row of slice.slice(1)) {
+                                if (row.length < 2 || !row[0]) {
+                                    continue;
+                                }
+                                const metric = row[0];
+                                const values = rowsByMetric.get(metric) || {};
+                                for (let i = 0; i < periods.length; i++) {
+                                    const value = row[i + 1] || '';
+                                    if (value && !values[periods[i]]) {
+                                        values[periods[i]] = value;
+                                    }
+                                }
+                                rowsByMetric.set(metric, values);
+                            }
+                        }
+                        scroller.scrollLeft = originalScrollLeft;
+
+                        if (mergedPeriods.length === 0 || rowsByMetric.size === 0) {
+                            return JSON.stringify(extractFromTable(best));
+                        }
+                        return JSON.stringify([
+                            ['Metric', ...mergedPeriods],
+                            ...Array.from(rowsByMetric.entries()).map(([metric, values]) => [
+                                metric,
+                                ...mergedPeriods.map(period => values[period] || '')
+                            ])
+                        ]);
                     }
 
                     const roleRows = Array.from(document.querySelectorAll('[role="row"]')).filter(visible);
@@ -430,6 +613,28 @@ public final class DividendWatchBrowserLogin {
         }
     }
 
+    private void waitForStockPageOrThrow(Page page, String ticker) {
+        try {
+            page.waitForFunction("""
+                    ticker => {
+                        const normalizedTicker = String(ticker).toUpperCase();
+                        const url = window.location.href.toLowerCase();
+                        const body = (document.body.innerText || '').toUpperCase();
+                        return url.includes('/symbol/')
+                            && (url.includes('/' + normalizedTicker.toLowerCase() + '-')
+                                || body.includes(normalizedTicker));
+                    }
+                    """, ticker, new Page.WaitForFunctionOptions().setTimeout(config.timeout().toMillis()));
+        } catch (PlaywrightException exception) {
+            throw new IllegalStateException("""
+                    Could not confirm stock page for %s.
+                    Current URL: %s
+                    Visible controls:
+                    %s
+                    """.formatted(ticker, page.url(), visibleControls(page)), exception);
+        }
+    }
+
     private void waitForLoginToFinish(Page page) {
         try {
             page.waitForFunction("""
@@ -554,7 +759,7 @@ public final class DividendWatchBrowserLogin {
         }
 
         public static BrowserLoginConfig fromEnvironment() {
-            String baseUrl = env("DIVIDENDWATCH_BASE_URL", DividendWatchCrawler.DEFAULT_BASE_URL);
+            String baseUrl = env("DIVIDENDWATCH_BASE_URL", DEFAULT_BASE_URL);
             return new BrowserLoginConfig(
                     env("DIVIDENDWATCH_BROWSER_LOGIN_URL", env("DIVIDENDWATCH_LOGIN_URL", baseUrl + "/my-stocks")),
                     env("DIVIDENDWATCH_USERNAME_SELECTOR", "input[name='email'], input[type='email']"),
