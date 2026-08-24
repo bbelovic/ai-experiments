@@ -6,7 +6,7 @@ import java.util.Map;
 public record EdgarFinancialStatements(
         String ticker,
         String source,
-        String sourceUrl,
+        List<String> sourceUrl,
         List<StatementTable> statements
 ) {
     public record StatementTable(

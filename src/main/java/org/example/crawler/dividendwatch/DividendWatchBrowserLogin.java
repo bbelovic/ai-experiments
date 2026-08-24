@@ -101,7 +101,7 @@ public final class DividendWatchBrowserLogin {
                 statements.add(extractVisibleStatementTable(page, statementName));
             }
 
-            return new DividendWatchFinancialStatements(normalizedTicker, page.url(), List.copyOf(statements));
+            return new DividendWatchFinancialStatements(normalizedTicker, "DIVIDEND_WATCH", page.url(), List.copyOf(statements));
         });
     }
 

@@ -5,6 +5,7 @@ import java.util.Map;
 
 public record DividendWatchFinancialStatements(
         String ticker,
+        String source,
         String sourceUrl,
         List<StatementTable> statements
 ) {

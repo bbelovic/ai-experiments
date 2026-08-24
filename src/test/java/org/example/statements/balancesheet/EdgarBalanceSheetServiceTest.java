@@ -333,8 +333,11 @@ class EdgarBalanceSheetServiceTest {
 
         assertThat(statements.ticker()).isEqualTo("MO");
         assertThat(statements.source()).isEqualTo("EDGAR");
-        assertThat(statements.sourceUrl()).isEqualTo(
-                "https://www.sec.gov/Archives/edgar/data/764180/000076418026000010/mo-20251231.htm");
+        assertThat(statements.sourceUrl()).containsExactly(
+                "https://www.sec.gov/Archives/edgar/data/764180/000076418026000010/mo-20251231.htm",
+                "https://www.sec.gov/Archives/edgar/data/764180/000076418025000010/mo-20241231.htm",
+                "https://www.sec.gov/Archives/edgar/data/764180/000076418024000010/mo-20231231.htm",
+                "https://www.sec.gov/Archives/edgar/data/764180/000076418023000010/mo-20221231.htm");
         assertThat(statements.statements()).hasSize(1);
         assertThat(statements.statements().getFirst().name()).isEqualTo("Balance Sheet");
         assertThat(statements.statements().getFirst().periods()).containsExactly("2025", "2024", "2023", "2022");

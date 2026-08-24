@@ -174,9 +174,9 @@ public final class EdgarBalanceSheetService {
             ));
         }
 
-        String sourceUrl = filings.isEmpty()
-                ? ""
-                : filings.getFirst().sourceUrl(companyFacts.path("cik").asText());
+        List<String> sourceUrl = filings.stream()
+                .map(filing -> filing.sourceUrl(companyFacts.path("cik").asText()))
+                .toList();
         return new EdgarFinancialStatements(
                 ticker.trim().toUpperCase(Locale.ROOT),
                 "EDGAR",
