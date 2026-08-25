@@ -15,6 +15,8 @@ import com.microsoft.playwright.options.Cookie;
 import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.SelectOption;
 import com.microsoft.playwright.options.WaitForSelectorState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -29,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class DividendWatchBrowserLogin {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DividendWatchBrowserLogin.class);
     public static final String DEFAULT_BASE_URL = "https://dividend.watch";
 
     private static final List<String> STATEMENT_NAMES = List.of(
@@ -110,18 +113,21 @@ public final class DividendWatchBrowserLogin {
         Locator search = page.locator("#stock-search-navbar-input").first();
         search.fill(ticker);
 
-        String stockPath = findStockPathFromSearchApi(page, ticker);
-        if (stockPath != null) {
-            page.navigate(origin(page.url()) + stockPath);
-        } else if (clickSearchResult(page, ticker)) {
+        if (clickSearchResult(page, ticker)) {
             // Navigation is triggered by the click.
         } else {
-            search.press("Enter");
+            String stockPath = findStockPathFromSearchApi(page, ticker);
+            if (stockPath != null) {
+                page.navigate(origin(page.url()) + stockPath);
+            } else {
+                search.press("Enter");
+            }
         }
 
         waitForDom(page);
         waitForStockPageOrThrow(page, ticker);
         page.waitForTimeout(config.postLoginSettle().toMillis());
+        ensureAuthenticatedAccess(page, "opening stock page for " + ticker);
         debug(page, "opened stock page for " + ticker + " at " + page.url());
     }
 
@@ -243,6 +249,7 @@ public final class DividendWatchBrowserLogin {
         waitForVisibleOrThrow(page, "#financial-statement-select-toggle-button", "fundamentals statement selector");
         clickIfVisible(page, "button:has-text('Annual')");
         page.waitForTimeout(config.postLoginSettle().toMillis());
+        ensureAuthenticatedAccess(page, "opening fundamentals");
         debug(page, "opened fundamentals at " + page.url());
     }
 
@@ -271,6 +278,7 @@ public final class DividendWatchBrowserLogin {
         waitForVisibleOrThrow(page, "#financial-statement-select-toggle-button:has-text('" + statementName + "')",
                 statementName + " selection");
         page.waitForTimeout(1_000);
+        ensureAuthenticatedAccess(page, "selecting " + statementName);
         debug(page, "selected " + statementName);
     }
 
@@ -497,8 +505,45 @@ public final class DividendWatchBrowserLogin {
             waitForDom(page);
         }
         page.waitForTimeout(config.postLoginSettle().toMillis());
+        ensureAuthenticatedAccess(page, "login");
         debug(page, "login ended at " + page.url());
         debug(page, "visible controls after login:\n" + visibleControls(page));
+    }
+
+    private void ensureAuthenticatedAccess(Page page, String step) {
+        if (!appearsUnauthenticatedOrGated(page)) {
+            return;
+        }
+        throw new IllegalStateException("""
+                Dividend Watch page became unauthenticated or gated while %s.
+                Current URL: %s
+                Visible controls:
+                %s
+                """.formatted(step, page.url(), visibleControls(page)));
+    }
+
+    private boolean appearsUnauthenticatedOrGated(Page page) {
+        return Boolean.TRUE.equals(page.locator("body").evaluate("""
+                () => {
+                    const visible = element => {
+                        const style = window.getComputedStyle(element);
+                        const rect = element.getBoundingClientRect();
+                        return style.visibility !== 'hidden'
+                            && style.display !== 'none'
+                            && rect.width > 0
+                            && rect.height > 0;
+                    };
+                    const visibleText = selector => Array.from(document.querySelectorAll(selector))
+                        .filter(visible)
+                        .map(element => (element.innerText || element.textContent || '').replace(/\\s+/g, ' ').trim())
+                        .filter(Boolean);
+                    const controls = visibleText('a, button');
+                    const bodyText = (document.body.innerText || '').replace(/\\s+/g, ' ');
+                    const hasSignInControl = controls.some(text => /^(sign in|log in)$/i.test(text));
+                    const hasAccountGate = /Create Your Free Account|Unlock access|Something went wrong/i.test(bodyText);
+                    return hasSignInControl || hasAccountGate;
+                }
+                """));
     }
 
     private void attachDiagnostics(Page page) {
@@ -507,7 +552,7 @@ public final class DividendWatchBrowserLogin {
         }
         page.onConsoleMessage(message -> {
             if ("error".equals(message.type()) || "warning".equals(message.type())) {
-                System.err.println("[dividendwatch][console][" + message.type() + "] " + message.text());
+                LOGGER.error("[dividendwatch][console][{}] {}", message.type(), message.text());
             }
         });
         page.onResponse(response -> {
@@ -517,11 +562,11 @@ public final class DividendWatchBrowserLogin {
                     || url.contains("supabase")
                     || url.contains("firebase")
                     || url.contains("auth")) {
-                System.err.println("[dividendwatch][response] " + response.status() + " " + url);
+                LOGGER.debug("[dividendwatch][response] {} {}", response.status(), url);
             }
         });
-        page.onRequestFailed(request -> System.err.println(
-                "[dividendwatch][request-failed] " + request.method() + " " + request.url() + " " + request.failure()));
+        page.onRequestFailed(request -> LOGGER.debug(
+                "[dividendwatch][request-failed] {} {} {}", request.method(), request.url(), request.failure()));
     }
 
     private void clickIfPresent(Page page, String selector) {
@@ -712,7 +757,7 @@ public final class DividendWatchBrowserLogin {
         if (!config.debug()) {
             return;
         }
-        System.err.println("[dividendwatch] " + message);
+        LOGGER.debug("[dividendwatch] {}", message);
         try {
             Path directory = Path.of("target/dividendwatch-debug");
             Files.createDirectories(directory);
@@ -720,8 +765,8 @@ public final class DividendWatchBrowserLogin {
             page.screenshot(new Page.ScreenshotOptions()
                     .setPath(directory.resolve("last-page.png"))
                     .setFullPage(true));
-        } catch (RuntimeException | java.io.IOException exception) {
-            System.err.println("[dividendwatch] could not write debug artifacts: " + exception.getMessage());
+        } catch (RuntimeException | IOException exception) {
+            LOGGER.error("[dividendwatch] could not write debug artifacts: ", exception);
         }
     }
 

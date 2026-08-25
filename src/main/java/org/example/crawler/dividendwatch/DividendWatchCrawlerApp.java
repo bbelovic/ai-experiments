@@ -1,15 +1,18 @@
 package org.example.crawler.dividendwatch;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 public final class DividendWatchCrawlerApp {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DividendWatchCrawlerApp.class);
     private DividendWatchCrawlerApp() {
     }
 
-    public static void main(String[] args) throws Exception {
+    static void main(String[] args) throws Exception {
         DividendWatchBrowserLogin browser = DividendWatchBrowserLogin.fromEnvironment();
         String ticker = stockTicker(args);
         if (ticker != null) {
@@ -23,9 +26,9 @@ public final class DividendWatchCrawlerApp {
                     Files.createDirectories(parent);
                 }
                 Files.writeString(target, json);
-                System.out.println("Wrote financial statements for " + ticker.toUpperCase() + " to " + target.toAbsolutePath());
+                LOGGER.info("Wrote financial statements for [{}] to [{}]", ticker.toUpperCase(), target.toAbsolutePath());
             } else {
-                System.out.println(json);
+                LOGGER.info(json);
             }
             return;
         }
@@ -34,13 +37,13 @@ public final class DividendWatchCrawlerApp {
         if (downloadUrl != null && !downloadUrl.isBlank()) {
             String target = env("DIVIDENDWATCH_DOWNLOAD_TARGET", "build/dividendwatch-download");
             Path downloaded = browser.download(downloadUrl, Path.of(target));
-            System.out.println("Downloaded " + downloadUrl + " to " + downloaded.toAbsolutePath());
+            LOGGER.info("Downloaded [{}] to [{}]", downloadUrl, downloaded.toAbsolutePath());
             return;
         }
 
         String scrapeUrl = env("DIVIDENDWATCH_SCRAPE_URL", DividendWatchBrowserLogin.DEFAULT_BASE_URL + "/tracker");
         String scrapeSelector = env("DIVIDENDWATCH_SCRAPE_SELECTOR", "body");
-        System.out.println(browser.scrapeText(scrapeUrl, scrapeSelector));
+        LOGGER.info(browser.scrapeText(scrapeUrl, scrapeSelector));
     }
 
     private static String stockTicker(String[] args) {
