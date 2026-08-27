@@ -111,16 +111,6 @@ public final class EdgarBalanceSheetService {
         this.userAgent = userAgent;
     }
 
-    public BalanceSheetSnapshot latestAnnualBalanceSheet(String ticker) throws IOException, InterruptedException {
-        JsonNode companies = fetchJson("https://www.sec.gov/files/company_tickers.json");
-        String cik = findCikForTicker(companies, ticker);
-        String paddedCik = String.format("%010d", Long.parseLong(cik));
-        JsonNode submissions = fetchJson("https://data.sec.gov/submissions/CIK" + paddedCik + ".json");
-        JsonNode companyFacts = fetchJson("https://data.sec.gov/api/xbrl/companyfacts/CIK" + paddedCik + ".json");
-
-        return extractLatestAnnualBalanceSheet(ticker, submissions, companyFacts);
-    }
-
     public EdgarFinancialStatements annualBalanceSheetStatement(String ticker) throws IOException, InterruptedException {
         JsonNode companies = fetchJson("https://www.sec.gov/files/company_tickers.json");
         String cik = findCikForTicker(companies, ticker);
@@ -129,23 +119,6 @@ public final class EdgarBalanceSheetService {
         JsonNode companyFacts = fetchJson("https://data.sec.gov/api/xbrl/companyfacts/CIK" + paddedCik + ".json");
 
         return extractAnnualBalanceSheetStatement(ticker, submissions, companyFacts);
-    }
-
-    BalanceSheetSnapshot extractLatestAnnualBalanceSheet(String ticker, JsonNode submissions, JsonNode companyFacts) {
-        AnnualFiling latest10K = latest10K(submissions);
-        List<BalanceSheetMetric> metrics = metricsForFiling(companyFacts, latest10K);
-
-        return new BalanceSheetSnapshot(
-                companyFacts.path("cik").asText(),
-                ticker.trim().toUpperCase(Locale.ROOT),
-                companyFacts.path("entityName").asText(submissions.path("name").asText()),
-                latest10K.form(),
-                latest10K.fiscalYear(),
-                latest10K.reportDate(),
-                latest10K.filingDate(),
-                latest10K.accessionNumber(),
-                List.copyOf(metrics)
-        );
     }
 
     EdgarFinancialStatements extractAnnualBalanceSheetStatement(
