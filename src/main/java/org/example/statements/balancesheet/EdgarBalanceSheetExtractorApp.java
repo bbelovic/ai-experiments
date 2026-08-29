@@ -6,7 +6,7 @@ public final class EdgarBalanceSheetExtractorApp {
     private EdgarBalanceSheetExtractorApp() {
     }
 
-    public static void main(String[] args) throws Exception {
+    static void main(String[] args) throws Exception {
         String ticker = args.length > 0 ? args[0].trim() : env("EDGAR_STOCK_TICKER", "AAPL");
         String userAgent = env("EDGAR_USER_AGENT", "ai-experiments test@example.com");
 

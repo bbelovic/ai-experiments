@@ -363,14 +363,6 @@ public final class EdgarBalanceSheetService {
                                 .thenComparing(fact -> fact.path("filed").asText(""))));
     }
 
-    private AnnualFiling latest10K(JsonNode submissions) {
-        List<AnnualFiling> filings = latest10Ks(submissions, 1);
-        if (filings.isEmpty()) {
-            throw new IllegalArgumentException("No recent 10-K found in submissions data");
-        }
-        return filings.getFirst();
-    }
-
     private List<AnnualFiling> latest10Ks(JsonNode submissions, int limit) {
         JsonNode recent = submissions.path("filings").path("recent");
         JsonNode forms = recent.path("form");
