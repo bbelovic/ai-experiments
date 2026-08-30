@@ -12,7 +12,7 @@ class EdgarBalanceSheetServiceTest {
     private final EdgarBalanceSheetService service = new EdgarBalanceSheetService(
             HttpClient.newHttpClient(),
             objectMapper,
-            "ai-experiments test@example.com"
+            "ai-experiments test@example.com",1
     );
 
     @Test

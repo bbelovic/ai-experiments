@@ -100,15 +100,17 @@ public final class EdgarBalanceSheetService {
     private final HttpClient client;
     private final ObjectMapper objectMapper;
     private final String userAgent;
+    private final int balanceSheetPeriods;
 
-    public EdgarBalanceSheetService(String userAgent) {
-        this(HttpClient.newHttpClient(), new ObjectMapper(), userAgent);
+    public EdgarBalanceSheetService(String userAgent, int balanceSheetPeriods) {
+        this(HttpClient.newHttpClient(), new ObjectMapper(), userAgent, balanceSheetPeriods);
     }
 
-    EdgarBalanceSheetService(HttpClient client, ObjectMapper objectMapper, String userAgent) {
+    EdgarBalanceSheetService(HttpClient client, ObjectMapper objectMapper, String userAgent, int balanceSheetPeriods) {
         this.client = client;
         this.objectMapper = objectMapper;
         this.userAgent = userAgent;
+        this.balanceSheetPeriods = balanceSheetPeriods;
     }
 
     public EdgarFinancialStatements annualBalanceSheetStatement(String ticker) throws IOException, InterruptedException {
@@ -126,7 +128,7 @@ public final class EdgarBalanceSheetService {
             JsonNode submissions,
             JsonNode companyFacts
     ) {
-        List<AnnualFiling> filings = latest10Ks(submissions, BALANCE_SHEET_PERIODS);
+        List<AnnualFiling> filings = latest10Ks(submissions, balanceSheetPeriods);
         List<String> periods = filings.stream()
                 .map(AnnualFiling::fiscalYear)
                 .toList();
