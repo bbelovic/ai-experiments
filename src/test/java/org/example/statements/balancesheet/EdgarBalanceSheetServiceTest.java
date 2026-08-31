@@ -1,8 +1,10 @@
 package org.example.statements.balancesheet;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
+import java.io.InputStream;
 import java.net.http.HttpClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -12,8 +14,27 @@ class EdgarBalanceSheetServiceTest {
     private final EdgarBalanceSheetService service = new EdgarBalanceSheetService(
             HttpClient.newHttpClient(),
             objectMapper,
-            "ai-experiments test@example.com",1
+            "ai-experiments test@example.com",
+            4
     );
+
+    @Test
+    void extractsStatementShapedBalanceSheetFromRealAAPL10Ks() throws Exception {
+        JsonNode submissions = readFixtureJson("AAPL-submissions.json");
+        JsonNode companyFacts = readFixtureJson("AAPL-company-facts.json");
+
+        EdgarFinancialStatements statements = service.extractAnnualBalanceSheetStatement(
+                "aapl",
+                submissions,
+                companyFacts
+        );
+
+        assertThat(statements.ticker()).isEqualTo("AAPL");
+        assertThat(statements.source()).isEqualTo("EDGAR");
+        assertThat(statements.statements()).hasSize(1);
+        assertThat(statements.statements().getFirst().rows()).isNotEmpty();
+//        assertThat(row(statements, ))
+    }
 
     @Test
     void extractsStatementShapedBalanceSheetFromRecent10Ks() throws Exception {
@@ -173,5 +194,14 @@ class EdgarBalanceSheetServiceTest {
                 .filter(row -> row.metric().equals(metric))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private JsonNode readFixtureJson(String name) throws Exception {
+        try (InputStream input = getClass().getResourceAsStream("/fixtures/" + name)) {
+            assertThat(input)
+                    .as("fixture /fixtures/%s should be on the test classpath", name)
+                    .isNotNull();
+            return objectMapper.readTree(input);
+        }
     }
 }
