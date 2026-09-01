@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
 import java.net.http.HttpClient;
+import java.text.DecimalFormat;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -21,19 +22,32 @@ class EdgarBalanceSheetServiceTest {
     @Test
     void extractsStatementShapedBalanceSheetFromRealAAPL10Ks() throws Exception {
         JsonNode submissions = readFixtureJson("AAPL-submissions.json");
-        JsonNode companyFacts = readFixtureJson("AAPL-company-facts.json");
+        JsonNode companyFacts = readFixtureJson("AAPL-company-facts-pretty.json");
 
-        EdgarFinancialStatements statements = service.extractAnnualBalanceSheetStatement(
+
+        var localService = new EdgarBalanceSheetService(
+                HttpClient.newHttpClient(),
+                objectMapper,
+                "ai-experiments test@example.com",
+                1
+        );
+
+        EdgarFinancialStatements statements = localService.extractAnnualBalanceSheetStatement(
                 "aapl",
                 submissions,
                 companyFacts
         );
 
+        DecimalFormat valueFormat = EdgarBalanceSheetService.getValueFormat();
+
         assertThat(statements.ticker()).isEqualTo("AAPL");
         assertThat(statements.source()).isEqualTo("EDGAR");
         assertThat(statements.statements()).hasSize(1);
         assertThat(statements.statements().getFirst().rows()).isNotEmpty();
-//        assertThat(row(statements, ))
+        assertThat(row(statements, "Accounts payable").values())
+                .containsEntry("2025", valueFormat.format(69860000000L));
+        assertThat(row(statements, "Receivables").values())
+                .containsEntry("2025", valueFormat.format(39777000000L));
     }
 
     @Test

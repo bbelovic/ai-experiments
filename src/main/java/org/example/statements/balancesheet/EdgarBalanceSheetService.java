@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class EdgarBalanceSheetService {
-    private static final int BALANCE_SHEET_PERIODS = 4;
     private static final DecimalFormat VALUE_FORMAT = new DecimalFormat(
             "#,##0.###",
             DecimalFormatSymbols.getInstance(Locale.US)
@@ -162,6 +161,10 @@ public final class EdgarBalanceSheetService {
                         List.copyOf(rows)
                 ))
         );
+    }
+
+    public static DecimalFormat getValueFormat() {
+        return VALUE_FORMAT;
     }
 
     private List<BalanceSheetMetric> metricsForFiling(JsonNode companyFacts, AnnualFiling filing) {
