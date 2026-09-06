@@ -2,6 +2,9 @@ package org.example.statements.balancesheet;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.statements.CommonStatementTable;
+import org.example.statements.EdgarStatement;
+import org.example.statements.StatementRow;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -112,7 +115,7 @@ public final class EdgarBalanceSheetService {
         this.balanceSheetPeriods = balanceSheetPeriods;
     }
 
-    public EdgarFinancialStatements annualBalanceSheetStatement(String ticker) throws IOException, InterruptedException {
+    public EdgarStatement annualBalanceSheetStatement(String ticker) throws IOException, InterruptedException {
         JsonNode companies = fetchJson("https://www.sec.gov/files/company_tickers.json");
         String cik = findCikForTicker(companies, ticker);
         String paddedCik = String.format("%010d", Long.parseLong(cik));
@@ -122,7 +125,7 @@ public final class EdgarBalanceSheetService {
         return extractAnnualBalanceSheetStatement(ticker, submissions, companyFacts);
     }
 
-    EdgarFinancialStatements extractAnnualBalanceSheetStatement(
+    EdgarStatement extractAnnualBalanceSheetStatement(
             String ticker,
             JsonNode submissions,
             JsonNode companyFacts
@@ -135,14 +138,14 @@ public final class EdgarBalanceSheetService {
                 .map(filing -> metricsByKey(metricsForFiling(companyFacts, filing)))
                 .toList();
 
-        List<EdgarFinancialStatements.StatementRow> rows = new ArrayList<>();
+        List<StatementRow> rows = new ArrayList<>();
         for (BalanceSheetMetricDefinition definition : METRICS) {
             Map<String, String> values = new LinkedHashMap<>();
             for (int i = 0; i < periods.size(); i++) {
                 BalanceSheetMetric metric = metricMaps.get(i).get(definition.key());
                 values.put(periods.get(i), metric == null ? "0" : formatValue(metric.value()));
             }
-            rows.add(new EdgarFinancialStatements.StatementRow(
+            rows.add(new StatementRow(
                     definition.label(),
                     Collections.unmodifiableMap(new LinkedHashMap<>(values))
             ));
@@ -151,11 +154,11 @@ public final class EdgarBalanceSheetService {
         List<String> sourceUrl = filings.stream()
                 .map(filing -> filing.sourceUrl(companyFacts.path("cik").asText()))
                 .toList();
-        return new EdgarFinancialStatements(
+        return new EdgarStatement(
                 ticker.trim().toUpperCase(Locale.ROOT),
                 "EDGAR",
                 sourceUrl,
-                List.of(new EdgarFinancialStatements.StatementTable(
+                List.of(new CommonStatementTable(
                         "Balance Sheet",
                         periods,
                         List.copyOf(rows)

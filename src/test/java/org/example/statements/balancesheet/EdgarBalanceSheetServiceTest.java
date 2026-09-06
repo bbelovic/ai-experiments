@@ -2,11 +2,16 @@ package org.example.statements.balancesheet;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.statements.CommonStatementTable;
+import org.example.statements.EdgarStatement;
+import org.example.statements.StatementRow;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
 import java.net.http.HttpClient;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,7 +37,7 @@ class EdgarBalanceSheetServiceTest {
                 1
         );
 
-        EdgarFinancialStatements statements = localService.extractAnnualBalanceSheetStatement(
+        EdgarStatement statements = localService.extractAnnualBalanceSheetStatement(
                 "aapl",
                 submissions,
                 companyFacts
@@ -52,7 +57,8 @@ class EdgarBalanceSheetServiceTest {
 
     @Test
     void extractsStatementShapedBalanceSheetFromRecent10Ks() throws Exception {
-        EdgarFinancialStatements statements = service.extractAnnualBalanceSheetStatement(
+        EdgarStatement stmt = new EdgarStatement("AAPL", "EDGAR", List.of("http://url"), new ArrayList<>());
+        EdgarStatement statements = service.extractAnnualBalanceSheetStatement(
                 "mo",
                 objectMapper.readTree("""
                         {
@@ -203,7 +209,7 @@ class EdgarBalanceSheetServiceTest {
                 .containsEntry("2024", "0");
     }
 
-    private EdgarFinancialStatements.StatementRow row(EdgarFinancialStatements statements, String metric) {
+    private StatementRow row(EdgarStatement statements, String metric) {
         return statements.statements().getFirst().rows().stream()
                 .filter(row -> row.metric().equals(metric))
                 .findFirst()
