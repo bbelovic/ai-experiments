@@ -3,6 +3,9 @@ package org.example.statements.balancesheet;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.statements.EdgarStatement;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 public final class EdgarBalanceSheetExtractorApp {
     private EdgarBalanceSheetExtractorApp() {
     }
@@ -14,7 +17,13 @@ public final class EdgarBalanceSheetExtractorApp {
         EdgarStatement statements = new EdgarBalanceSheetService(userAgent, 4)
                 .annualBalanceSheetStatement(ticker);
 
-        System.out.println(new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(statements));
+        var outputFilePath = env("org.example.output.filepath", "");
+        if (outputFilePath.isBlank()) {
+            System.out.println(new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(statements));
+        } else {
+            var out = Files.newOutputStream(Path.of(outputFilePath));
+            new ObjectMapper().writerWithDefaultPrettyPrinter().writeValue(out, statements);
+        }
     }
 
     private static String env(String name, String fallback) {
