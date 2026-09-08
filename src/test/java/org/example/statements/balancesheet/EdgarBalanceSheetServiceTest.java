@@ -2,7 +2,6 @@ package org.example.statements.balancesheet;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.example.statements.CommonStatementTable;
 import org.example.statements.EdgarStatement;
 import org.example.statements.StatementRow;
 import org.junit.jupiter.api.Test;
@@ -10,9 +9,6 @@ import org.junit.jupiter.api.Test;
 import java.io.InputStream;
 import java.net.http.HttpClient;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.NoSuchElementException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
