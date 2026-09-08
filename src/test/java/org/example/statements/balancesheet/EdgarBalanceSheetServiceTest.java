@@ -12,8 +12,10 @@ import java.net.http.HttpClient;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class EdgarBalanceSheetServiceTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -53,11 +55,13 @@ class EdgarBalanceSheetServiceTest {
                 .containsEntry("2025", valueFormat.format(69860000000L));
         assertThat(row(statements, "Receivables").values())
                 .containsEntry("2025", valueFormat.format(39777000000L));
+        assertThatThrownBy(() -> row(statements, "AccruedIncomeTaxesCurrent"))
+                .hasMessage("No value present");
+
     }
 
     @Test
     void extractsStatementShapedBalanceSheetFromRecent10Ks() throws Exception {
-        EdgarStatement stmt = new EdgarStatement("AAPL", "EDGAR", List.of("http://url"), new ArrayList<>());
         EdgarStatement statements = service.extractAnnualBalanceSheetStatement(
                 "mo",
                 objectMapper.readTree("""
