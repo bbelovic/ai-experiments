@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import java.io.InputStream;
 import java.net.http.HttpClient;
 import java.text.DecimalFormat;
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -47,13 +49,18 @@ class EdgarBalanceSheetServiceTest {
         assertThat(statements.source()).isEqualTo("EDGAR");
         assertThat(statements.statements()).hasSize(1);
         assertThat(statements.statements().getFirst().rows()).isNotEmpty();
-        assertThat(row(statements, "Accounts payable").values())
-                .containsEntry("2025", valueFormat.format(69860000000L));
-        assertThat(row(statements, "Receivables").values())
-                .containsEntry("2025", valueFormat.format(39777000000L));
-        assertThatThrownBy(() -> row(statements, "AccruedIncomeTaxesCurrent"))
-                .hasMessage("No value present");
 
+        Map.of("Accounts payable", 69860000000L, "Receivables", 39777000000L)
+                .forEach((label, expectedValue) -> {
+                    assertThat(row(statements, label).values())
+                            .containsEntry("2025", valueFormat.format(expectedValue));
+                });
+
+        List.of("AccruedIncomeTaxesNoncurrent", "AccruedIncomeTaxesCurrent", "AccruedLiabilities")
+                .forEach(notPresent -> {
+                    assertThatThrownBy(() -> row(statements, notPresent))
+                            .hasMessage("No value present");
+                });
     }
 
     @Test

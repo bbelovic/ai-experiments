@@ -29,7 +29,7 @@ public final class EdgarBalanceSheetService {
             DecimalFormatSymbols.getInstance(Locale.US)
     );
 
-    private static final List<BalanceSheetMetricDefinition> METRICS = List.of(
+    static final List<BalanceSheetMetricDefinition> METRICS = List.of(
             metric("total_assets", "Total assets", "Assets", "Assets"),
             metric("current_assets", "Current assets", "Assets", "AssetsCurrent"),
             metric("cash_and_cash_equivalents", "Cash & cash equivalents", "Assets",
