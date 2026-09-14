@@ -8,12 +8,12 @@ import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
 import java.net.http.HttpClient;
-import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.example.statements.balancesheet.EdgarBalanceSheetService.VALUE_FORMAT;
 
 class EdgarBalanceSheetServiceTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -21,7 +21,8 @@ class EdgarBalanceSheetServiceTest {
             HttpClient.newHttpClient(),
             objectMapper,
             "ai-experiments test@example.com",
-            4
+            4,
+            EdgarBalanceSheetService.METRICS
     );
 
     @Test
@@ -29,12 +30,30 @@ class EdgarBalanceSheetServiceTest {
         JsonNode submissions = readFixtureJson("AAPL-submissions.json");
         JsonNode companyFacts = readFixtureJson("AAPL-company-facts-pretty.json");
 
+        var apMetricDefinition = new BalanceSheetMetricDefinition("accounts_payable", "Accounts payable",
+                "Liabilities", List.of("AccountsPayableCurrent"));
+        BalanceSheetMetricDefinition receivablesMetricDefinition =
+                new BalanceSheetMetricDefinition("receivables", "Receivables", "Assets",
+                List.of("AccountsReceivableNetCurrent",
+                        "AccountsReceivableNet",
+                        "ReceivablesNetCurrent"));
+        BalanceSheetMetricDefinition assetsMetricDefinition = new BalanceSheetMetricDefinition("total_assets", "Total assets", "Assets", List.of("Assets"));
+        BalanceSheetMetricDefinition currentAssetsMetricDefinition = new BalanceSheetMetricDefinition("current_assets", "Current assets", "Assets", List.of("AssetsCurrent"));
+
+        BalanceSheetMetricDefinition cashAndEquivalents = new BalanceSheetMetricDefinition("cash_and_cash_equivalents", "Cash & cash equivalents", "Assets",
+                List.of("CashAndCashEquivalentsAtCarryingValue",
+                        "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"));
+        BalanceSheetMetricDefinition shortTermInvestments = new BalanceSheetMetricDefinition("short_term_investments", "Short-term investments", "Assets",
+                List.of("ShortTermInvestments",
+                        "MarketableSecuritiesCurrent"));
 
         var localService = new EdgarBalanceSheetService(
                 HttpClient.newHttpClient(),
                 objectMapper,
                 "ai-experiments test@example.com",
-                1
+                1,
+                List.of(assetsMetricDefinition, currentAssetsMetricDefinition, cashAndEquivalents, shortTermInvestments,
+                new BalanceSheetMetricDefinition("cash_and_short_term_investments", "Cash & short-term investments", "Assets", List.of()))
         );
 
         EdgarStatement statements = localService.extractAnnualBalanceSheetStatement(
@@ -43,17 +62,17 @@ class EdgarBalanceSheetServiceTest {
                 companyFacts
         );
 
-        DecimalFormat valueFormat = EdgarBalanceSheetService.getValueFormat();
-
         assertThat(statements.ticker()).isEqualTo("AAPL");
         assertThat(statements.source()).isEqualTo("EDGAR");
         assertThat(statements.statements()).hasSize(1);
         assertThat(statements.statements().getFirst().rows()).isNotEmpty();
 
-        Map.of("Accounts payable", 69860000000L, "Receivables", 39777000000L)
+        Map.of("Cash & cash equivalents", 35934000000L, "Short-term investments", 18763000000L,
+                        "Cash & short-term investments", (35934000000L + 18763000000L),
+                        "Total assets", 359241000000L, "Current assets", 147957000000L)
                 .forEach((label, expectedValue) -> {
                     assertThat(row(statements, label).values())
-                            .containsEntry("2025", valueFormat.format(expectedValue));
+                            .containsEntry("2025", VALUE_FORMAT.format(expectedValue));
                 });
 
         List.of("AccruedIncomeTaxesNoncurrent", "AccruedIncomeTaxesCurrent", "AccruedLiabilities")

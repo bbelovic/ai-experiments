@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class EdgarBalanceSheetService {
-    private static final DecimalFormat VALUE_FORMAT = new DecimalFormat(
+    static final DecimalFormat VALUE_FORMAT = new DecimalFormat(
             "#,##0.###",
             DecimalFormatSymbols.getInstance(Locale.US)
     );
@@ -103,16 +103,19 @@ public final class EdgarBalanceSheetService {
     private final ObjectMapper objectMapper;
     private final String userAgent;
     private final int balanceSheetPeriods;
+    private final List<BalanceSheetMetricDefinition> metricDefinitions;
 
     public EdgarBalanceSheetService(String userAgent, int balanceSheetPeriods) {
-        this(HttpClient.newHttpClient(), new ObjectMapper(), userAgent, balanceSheetPeriods);
+        this(HttpClient.newHttpClient(), new ObjectMapper(), userAgent, balanceSheetPeriods, METRICS);
     }
 
-    EdgarBalanceSheetService(HttpClient client, ObjectMapper objectMapper, String userAgent, int balanceSheetPeriods) {
+    EdgarBalanceSheetService(HttpClient client, ObjectMapper objectMapper, String userAgent, int balanceSheetPeriods,
+                             List<BalanceSheetMetricDefinition> metricDefinitions) {
         this.client = client;
         this.objectMapper = objectMapper;
         this.userAgent = userAgent;
         this.balanceSheetPeriods = balanceSheetPeriods;
+        this.metricDefinitions = new ArrayList<>(metricDefinitions);
     }
 
     public EdgarStatement annualBalanceSheetStatement(String ticker) throws IOException, InterruptedException {
@@ -139,7 +142,7 @@ public final class EdgarBalanceSheetService {
                 .toList();
 
         List<StatementRow> rows = new ArrayList<>();
-        for (BalanceSheetMetricDefinition definition : METRICS) {
+        for (BalanceSheetMetricDefinition definition : metricDefinitions) {
             Map<String, String> values = new LinkedHashMap<>();
             for (int i = 0; i < periods.size(); i++) {
                 BalanceSheetMetric metric = metricMaps.get(i).get(definition.key());
@@ -166,15 +169,11 @@ public final class EdgarBalanceSheetService {
         );
     }
 
-    public static DecimalFormat getValueFormat() {
-        return VALUE_FORMAT;
-    }
-
     private List<BalanceSheetMetric> metricsForFiling(JsonNode companyFacts, AnnualFiling filing) {
         List<BalanceSheetMetric> metrics = new ArrayList<>();
         Map<String, BalanceSheetMetric> metricsByKey = new LinkedHashMap<>();
 
-        for (BalanceSheetMetricDefinition definition : METRICS) {
+        for (BalanceSheetMetricDefinition definition : metricDefinitions) {
             Optional<BalanceSheetMetric> metric = findMetric(definition, companyFacts, filing)
                     .or(() -> deriveMetric(definition, metricsByKey, filing));
             metric.ifPresent(found -> {
