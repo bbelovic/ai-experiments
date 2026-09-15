@@ -30,7 +30,7 @@ class EdgarBalanceSheetServiceTest {
         JsonNode submissions = readFixtureJson("AAPL-submissions.json");
         JsonNode companyFacts = readFixtureJson("AAPL-company-facts-pretty.json");
 
-        var apMetricDefinition = new BalanceSheetMetricDefinition("accounts_payable", "Accounts payable",
+        BalanceSheetMetricDefinition apMetricDefinition = new BalanceSheetMetricDefinition("accounts_payable", "Accounts payable",
                 "Liabilities", List.of("AccountsPayableCurrent"));
         BalanceSheetMetricDefinition receivablesMetricDefinition =
                 new BalanceSheetMetricDefinition("receivables", "Receivables", "Assets",
@@ -46,6 +46,7 @@ class EdgarBalanceSheetServiceTest {
         BalanceSheetMetricDefinition shortTermInvestments = new BalanceSheetMetricDefinition("short_term_investments", "Short-term investments", "Assets",
                 List.of("ShortTermInvestments",
                         "MarketableSecuritiesCurrent"));
+        BalanceSheetMetricDefinition inventory = new BalanceSheetMetricDefinition("inventory", "Inventory", "Assets", List.of("InventoryNet"));
 
         var localService = new EdgarBalanceSheetService(
                 HttpClient.newHttpClient(),
@@ -53,7 +54,7 @@ class EdgarBalanceSheetServiceTest {
                 "ai-experiments test@example.com",
                 1,
                 List.of(assetsMetricDefinition, currentAssetsMetricDefinition, cashAndEquivalents, shortTermInvestments,
-                new BalanceSheetMetricDefinition("cash_and_short_term_investments", "Cash & short-term investments", "Assets", List.of()))
+                new BalanceSheetMetricDefinition("cash_and_short_term_investments", "Cash & short-term investments", "Assets", List.of()), inventory)
         );
 
         EdgarStatement statements = localService.extractAnnualBalanceSheetStatement(
@@ -69,7 +70,7 @@ class EdgarBalanceSheetServiceTest {
 
         Map.of("Cash & cash equivalents", 35934000000L, "Short-term investments", 18763000000L,
                         "Cash & short-term investments", (35934000000L + 18763000000L),
-                        "Total assets", 359241000000L, "Current assets", 147957000000L)
+                        "Total assets", 359241000000L, "Current assets", 147957000000L, "Inventory", 5718000000L)
                 .forEach((label, expectedValue) -> {
                     assertThat(row(statements, label).values())
                             .containsEntry("2025", VALUE_FORMAT.format(expectedValue));
