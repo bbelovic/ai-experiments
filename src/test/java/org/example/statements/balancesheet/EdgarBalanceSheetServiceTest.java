@@ -46,7 +46,10 @@ class EdgarBalanceSheetServiceTest {
         BalanceSheetMetricDefinition shortTermInvestments = new BalanceSheetMetricDefinition("short_term_investments", "Short-term investments", "Assets",
                 List.of("ShortTermInvestments",
                         "MarketableSecuritiesCurrent"));
-        BalanceSheetMetricDefinition inventory = new BalanceSheetMetricDefinition("inventory", "Inventory", "Assets", List.of("InventoryNet"));
+        BalanceSheetMetricDefinition cashShortTermInvestments =
+                new BalanceSheetMetricDefinition("cash_and_short_term_investments", "Cash & short-term investments", "Assets", List.of());
+        BalanceSheetMetricDefinition inventory =
+                new BalanceSheetMetricDefinition("inventory", "Inventory", "Assets", List.of("InventoryNet"));
 
         var localService = new EdgarBalanceSheetService(
                 HttpClient.newHttpClient(),
@@ -54,7 +57,7 @@ class EdgarBalanceSheetServiceTest {
                 "ai-experiments test@example.com",
                 1,
                 List.of(assetsMetricDefinition, currentAssetsMetricDefinition, cashAndEquivalents, shortTermInvestments,
-                new BalanceSheetMetricDefinition("cash_and_short_term_investments", "Cash & short-term investments", "Assets", List.of()), inventory)
+                        cashShortTermInvestments, inventory, receivablesMetricDefinition, apMetricDefinition)
         );
 
         EdgarStatement statements = localService.extractAnnualBalanceSheetStatement(
@@ -70,9 +73,11 @@ class EdgarBalanceSheetServiceTest {
 
         Map.of("Cash & cash equivalents", 35934000000L, "Short-term investments", 18763000000L,
                         "Cash & short-term investments", (35934000000L + 18763000000L),
-                        "Total assets", 359241000000L, "Current assets", 147957000000L, "Inventory", 5718000000L)
+                        "Total assets", 359241000000L, "Current assets", 147957000000L,
+                        "Inventory", 5718000000L, "Receivables", 39777000000L, "Liabilities", 69860000000L)
                 .forEach((label, expectedValue) -> {
                     assertThat(row(statements, label).values())
+                            .as("Expecting label [%s] to have value [%s]", label, VALUE_FORMAT.format(expectedValue))
                             .containsEntry("2025", VALUE_FORMAT.format(expectedValue));
                 });
 
