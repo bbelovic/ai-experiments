@@ -8,11 +8,14 @@ import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
 import java.net.http.HttpClient;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.example.statements.balancesheet.BalanceSheetMetricEnumDefinition.*;
 import static org.example.statements.balancesheet.EdgarBalanceSheetService.VALUE_FORMAT;
 
 class EdgarBalanceSheetServiceTest {
@@ -22,7 +25,7 @@ class EdgarBalanceSheetServiceTest {
             objectMapper,
             "ai-experiments test@example.com",
             4,
-            EdgarBalanceSheetService.METRICS
+            EnumSet.allOf(BalanceSheetMetricEnumDefinition.class)
     );
 
     @Test
@@ -30,34 +33,13 @@ class EdgarBalanceSheetServiceTest {
         JsonNode submissions = readFixtureJson("AAPL-submissions.json");
         JsonNode companyFacts = readFixtureJson("AAPL-company-facts-pretty.json");
 
-        BalanceSheetMetricDefinition apMetricDefinition = new BalanceSheetMetricDefinition("accounts_payable", "Accounts payable",
-                "Liabilities", List.of("AccountsPayableCurrent"));
-        BalanceSheetMetricDefinition receivablesMetricDefinition =
-                new BalanceSheetMetricDefinition("receivables", "Receivables", "Assets",
-                List.of("AccountsReceivableNetCurrent",
-                        "AccountsReceivableNet",
-                        "ReceivablesNetCurrent"));
-        BalanceSheetMetricDefinition assetsMetricDefinition = new BalanceSheetMetricDefinition("total_assets", "Total assets", "Assets", List.of("Assets"));
-        BalanceSheetMetricDefinition currentAssetsMetricDefinition = new BalanceSheetMetricDefinition("current_assets", "Current assets", "Assets", List.of("AssetsCurrent"));
-
-        BalanceSheetMetricDefinition cashAndEquivalents = new BalanceSheetMetricDefinition("cash_and_cash_equivalents", "Cash & cash equivalents", "Assets",
-                List.of("CashAndCashEquivalentsAtCarryingValue",
-                        "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"));
-        BalanceSheetMetricDefinition shortTermInvestments = new BalanceSheetMetricDefinition("short_term_investments", "Short-term investments", "Assets",
-                List.of("ShortTermInvestments",
-                        "MarketableSecuritiesCurrent"));
-        BalanceSheetMetricDefinition cashShortTermInvestments =
-                new BalanceSheetMetricDefinition("cash_and_short_term_investments", "Cash & short-term investments", "Assets", List.of());
-        BalanceSheetMetricDefinition inventory =
-                new BalanceSheetMetricDefinition("inventory", "Inventory", "Assets", List.of("InventoryNet"));
-
         var localService = new EdgarBalanceSheetService(
                 HttpClient.newHttpClient(),
                 objectMapper,
                 "ai-experiments test@example.com",
                 1,
-                List.of(assetsMetricDefinition, currentAssetsMetricDefinition, cashAndEquivalents, shortTermInvestments,
-                        cashShortTermInvestments, inventory, receivablesMetricDefinition, apMetricDefinition)
+                EnumSet.of(TOTAL_ASSETS, CURRENT_ASSETS, CASH_AND_CASH_EQUIVALENTS, SHORT_TERM_INVESTMENTS,
+                        CASH_AND_SHORT_TERM_INVESTMENTS, INVENTORY, RECEIVABLES, ACCOUNTS_PAYABLE)
         );
 
         EdgarStatement statements = localService.extractAnnualBalanceSheetStatement(
@@ -71,13 +53,18 @@ class EdgarBalanceSheetServiceTest {
         assertThat(statements.statements()).hasSize(1);
         assertThat(statements.statements().getFirst().rows()).isNotEmpty();
 
-        Map.of("Cash & cash equivalents", 35934000000L, "Short-term investments", 18763000000L,
-                        "Cash & short-term investments", (35934000000L + 18763000000L),
-                        "Total assets", 359241000000L, "Current assets", 147957000000L,
-                        "Inventory", 5718000000L, "Receivables", 39777000000L, "Liabilities", 69860000000L)
-                .forEach((label, expectedValue) -> {
-                    assertThat(row(statements, label).values())
-                            .as("Expecting label [%s] to have value [%s]", label, VALUE_FORMAT.format(expectedValue))
+        Map<BalanceSheetMetricEnumDefinition, Long> expectedMetricsAndValues = new EnumMap<>(BalanceSheetMetricEnumDefinition.class);
+        expectedMetricsAndValues.put(CASH_AND_CASH_EQUIVALENTS, 35934000000L);
+        expectedMetricsAndValues.put(SHORT_TERM_INVESTMENTS, 18763000000L);
+        expectedMetricsAndValues.put(CASH_AND_SHORT_TERM_INVESTMENTS, (35934000000L + 18763000000L));
+        expectedMetricsAndValues.put(CURRENT_ASSETS, 147957000000L);
+        expectedMetricsAndValues.put(TOTAL_ASSETS, 359241000000L);
+        expectedMetricsAndValues.put(RECEIVABLES, 39777000000L);
+        expectedMetricsAndValues.put(ACCOUNTS_PAYABLE, 69860000000L);
+
+        expectedMetricsAndValues.forEach((metricDefinition, expectedValue) -> {
+                    assertThat(row(statements, metricDefinition.getLabel()).values())
+                            .as("Expecting label [%s] to have value [%s]", metricDefinition, VALUE_FORMAT.format(expectedValue))
                             .containsEntry("2025", VALUE_FORMAT.format(expectedValue));
                 });
 

@@ -14,14 +14,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public final class EdgarBalanceSheetService {
     static final DecimalFormat VALUE_FORMAT = new DecimalFormat(
@@ -29,93 +22,23 @@ public final class EdgarBalanceSheetService {
             DecimalFormatSymbols.getInstance(Locale.US)
     );
 
-    static final List<BalanceSheetMetricDefinition> METRICS = List.of(
-            metric("total_assets", "Total assets", "Assets", "Assets"),
-            metric("current_assets", "Current assets", "Assets", "AssetsCurrent"),
-            metric("cash_and_cash_equivalents", "Cash & cash equivalents", "Assets",
-                    "CashAndCashEquivalentsAtCarryingValue",
-                    "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"),
-            metric("short_term_investments", "Short-term investments", "Assets",
-                    "ShortTermInvestments",
-                    "MarketableSecuritiesCurrent"),
-            metric("cash_and_short_term_investments", "Cash & short-term investments", "Assets"),
-            metric("receivables", "Receivables", "Assets",
-                    "AccountsReceivableNetCurrent",
-                    "AccountsReceivableNet",
-                    "ReceivablesNetCurrent"),
-            metric("inventory", "Inventory", "Assets", "InventoryNet"),
-            metric("other_current_assets", "Other current assets", "Assets", "OtherCurrentAssets"),
-            metric("non_current_assets", "Non-current assets", "Assets"),
-            metric("ppe", "PP&E", "Assets",
-                    "PropertyPlantAndEquipmentNet",
-                    "PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization"),
-            metric("goodwill", "Goodwill", "Assets", "Goodwill"),
-            metric("intangible_assets", "Intangible assets", "Assets",
-                    "FiniteLivedIntangibleAssetsNet",
-                    "IntangibleAssetsNetExcludingGoodwill",
-                    "IntangibleAssetsNetIncludingGoodwill"),
-            metric("long_term_investments", "Long-term investments", "Assets",
-                    "MarketableSecuritiesNoncurrent",
-                    "LongTermInvestments"),
-            metric("tax_assets", "Tax assets", "Assets",
-                    "DeferredTaxAssetsNet",
-                    "DeferredTaxAssetsNetCurrent",
-                    "DeferredTaxAssetsLiabilitiesNet"),
-            metric("other_non_current_assets", "Other non-current assets", "Assets", "OtherAssetsNoncurrent"),
-            metric("total_liabilities", "Total liabilities", "Liabilities", "Liabilities"),
-            metric("current_liabilities", "Current liabilities", "Liabilities", "LiabilitiesCurrent"),
-            metric("accounts_payable", "Accounts payable", "Liabilities", "AccountsPayableCurrent"),
-            metric("short_term_debt", "Short-term debt", "Liabilities",
-                    "ShortTermBorrowings",
-                    "ShortTermDebtCurrent",
-                    "LongTermDebtCurrent"),
-            metric("tax_payables", "Tax payables", "Liabilities", "TaxesPayableCurrent"),
-            metric("current_deferred_revenue", "Deferred revenue", "Liabilities",
-                    "ContractWithCustomerLiabilityCurrent",
-                    "DeferredRevenueCurrent"),
-            metric("other_current_liabilities", "Other current liabilities", "Liabilities", "OtherCurrentLiabilities"),
-            metric("non_current_liabilities", "Non-current liabilities", "Liabilities", "LiabilitiesNoncurrent"),
-            metric("long_term_debt", "Long-term debt", "Liabilities",
-                    "LongTermDebtNoncurrent",
-                    "LongTermDebtAndFinanceLeaseObligationsNoncurrent"),
-            metric("non_current_deferred_revenue", "Deferred revenue", "Liabilities",
-                    "ContractWithCustomerLiabilityNoncurrent",
-                    "DeferredRevenueNoncurrent"),
-            metric("deferred_tax", "Deferred tax", "Liabilities",
-                    "DeferredTaxLiabilitiesNoncurrent",
-                    "DeferredTaxLiabilitiesNet"),
-            metric("other_non_current_liabilities", "Other non-current liabilities", "Liabilities", "OtherLiabilitiesNoncurrent"),
-            metric("total_equity", "Total equity", "Equity",
-                    "StockholdersEquity",
-                    "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"),
-            metric("preferred_stock", "Preferred stock", "Equity",
-                    "PreferredStocksIncludingAdditionalPaidInCapital",
-                    "PreferredStockValue"),
-            metric("common_stock", "Common stock", "Equity",
-                    "CommonStocksIncludingAdditionalPaidInCapital",
-                    "CommonStockValue"),
-            metric("retained_earnings", "Retained earnings", "Equity", "RetainedEarningsAccumulatedDeficit"),
-            metric("aoci", "AOCI", "Equity", "AccumulatedOtherComprehensiveIncomeLossNetOfTax"),
-            metric("other_equity", "Other equity", "Equity")
-    );
-
     private final HttpClient client;
     private final ObjectMapper objectMapper;
     private final String userAgent;
     private final int balanceSheetPeriods;
-    private final List<BalanceSheetMetricDefinition> metricDefinitions;
+    private final Collection<BalanceSheetMetricEnumDefinition> metricDefinitions;
 
     public EdgarBalanceSheetService(String userAgent, int balanceSheetPeriods) {
-        this(HttpClient.newHttpClient(), new ObjectMapper(), userAgent, balanceSheetPeriods, METRICS);
+        this(HttpClient.newHttpClient(), new ObjectMapper(), userAgent, balanceSheetPeriods, EnumSet.allOf(BalanceSheetMetricEnumDefinition.class));
     }
 
     EdgarBalanceSheetService(HttpClient client, ObjectMapper objectMapper, String userAgent, int balanceSheetPeriods,
-                             List<BalanceSheetMetricDefinition> metricDefinitions) {
+                             Collection<BalanceSheetMetricEnumDefinition> metricDefinitions) {
         this.client = client;
         this.objectMapper = objectMapper;
         this.userAgent = userAgent;
         this.balanceSheetPeriods = balanceSheetPeriods;
-        this.metricDefinitions = new ArrayList<>(metricDefinitions);
+        this.metricDefinitions = metricDefinitions;
     }
 
     public EdgarStatement annualBalanceSheetStatement(String ticker) throws IOException, InterruptedException {
@@ -142,14 +65,14 @@ public final class EdgarBalanceSheetService {
                 .toList();
 
         List<StatementRow> rows = new ArrayList<>();
-        for (BalanceSheetMetricDefinition definition : metricDefinitions) {
+        for (BalanceSheetMetricEnumDefinition definition : metricDefinitions) {
             Map<String, String> values = new LinkedHashMap<>();
             for (int i = 0; i < periods.size(); i++) {
-                BalanceSheetMetric metric = metricMaps.get(i).get(definition.key());
+                BalanceSheetMetric metric = metricMaps.get(i).get(definition.getKey());
                 values.put(periods.get(i), metric == null ? "0" : formatValue(metric.value()));
             }
             rows.add(new StatementRow(
-                    definition.label(),
+                    definition.getLabel(),
                     Collections.unmodifiableMap(new LinkedHashMap<>(values))
             ));
         }
@@ -173,7 +96,7 @@ public final class EdgarBalanceSheetService {
         List<BalanceSheetMetric> metrics = new ArrayList<>();
         Map<String, BalanceSheetMetric> metricsByKey = new LinkedHashMap<>();
 
-        for (BalanceSheetMetricDefinition definition : metricDefinitions) {
+        for (BalanceSheetMetricEnumDefinition definition : metricDefinitions) {
             Optional<BalanceSheetMetric> metric = findMetric(definition, companyFacts, filing)
                     .or(() -> deriveMetric(definition, metricsByKey, filing));
             metric.ifPresent(found -> {
@@ -193,18 +116,18 @@ public final class EdgarBalanceSheetService {
     }
 
     private Optional<BalanceSheetMetric> findMetric(
-            BalanceSheetMetricDefinition definition,
+            BalanceSheetMetricEnumDefinition definition,
             JsonNode companyFacts,
             AnnualFiling latest10K
     ) {
-        for (String concept : definition.usGaapConcepts()) {
+        for (String concept : definition.getUsGaapConcepts()) {
             Optional<JsonNode> fact = matchingFact(companyFacts, concept, latest10K);
             if (fact.isPresent()) {
                 JsonNode node = fact.get();
                 return Optional.of(new BalanceSheetMetric(
-                        definition.key(),
-                        definition.label(),
-                        definition.section(),
+                        definition.getKey(),
+                        definition.getLabel(),
+                        definition.getSection(),
                         concept,
                         node.path("val").decimalValue(),
                         "USD",
@@ -218,11 +141,11 @@ public final class EdgarBalanceSheetService {
     }
 
     private Optional<BalanceSheetMetric> deriveMetric(
-            BalanceSheetMetricDefinition definition,
+            BalanceSheetMetricEnumDefinition definition,
             Map<String, BalanceSheetMetric> metricsByKey,
             AnnualFiling latest10K
     ) {
-        return switch (definition.key()) {
+        return switch (definition.getKey()) {
             case "cash_and_short_term_investments" -> sum(definition, latest10K, metricsByKey,
                     "cash_and_cash_equivalents",
                     "short_term_investments");
@@ -267,7 +190,7 @@ public final class EdgarBalanceSheetService {
     }
 
     private Optional<BalanceSheetMetric> sum(
-            BalanceSheetMetricDefinition definition,
+            BalanceSheetMetricEnumDefinition definition,
             AnnualFiling latest10K,
             Map<String, BalanceSheetMetric> metricsByKey,
             String firstKey,
@@ -282,7 +205,7 @@ public final class EdgarBalanceSheetService {
     }
 
     private Optional<BalanceSheetMetric> subtract(
-            BalanceSheetMetricDefinition definition,
+            BalanceSheetMetricEnumDefinition definition,
             AnnualFiling latest10K,
             Map<String, BalanceSheetMetric> metricsByKey,
             String minuendKey,
@@ -302,7 +225,7 @@ public final class EdgarBalanceSheetService {
     }
 
     private Optional<BalanceSheetMetric> residual(
-            BalanceSheetMetricDefinition definition,
+            BalanceSheetMetricEnumDefinition definition,
             AnnualFiling latest10K,
             Map<String, BalanceSheetMetric> metricsByKey,
             String totalKey,
@@ -329,15 +252,15 @@ public final class EdgarBalanceSheetService {
     }
 
     private BalanceSheetMetric derived(
-            BalanceSheetMetricDefinition definition,
+            BalanceSheetMetricEnumDefinition definition,
             AnnualFiling latest10K,
             BigDecimal value,
             String formula
     ) {
         return new BalanceSheetMetric(
-                definition.key(),
-                definition.label(),
-                definition.section(),
+                definition.getKey(),
+                definition.getLabel(),
+                definition.getSection(),
                 "derived:" + formula,
                 value,
                 "USD",
