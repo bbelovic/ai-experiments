@@ -26,14 +26,14 @@ public final class EdgarBalanceSheetService {
     private final ObjectMapper objectMapper;
     private final String userAgent;
     private final int balanceSheetPeriods;
-    private final Collection<BalanceSheetMetricEnumDefinition> metricDefinitions;
+    private final Collection<BalanceSheetMetricEnumType> metricDefinitions;
 
     public EdgarBalanceSheetService(String userAgent, int balanceSheetPeriods) {
-        this(HttpClient.newHttpClient(), new ObjectMapper(), userAgent, balanceSheetPeriods, EnumSet.allOf(BalanceSheetMetricEnumDefinition.class));
+        this(HttpClient.newHttpClient(), new ObjectMapper(), userAgent, balanceSheetPeriods, EnumSet.allOf(BalanceSheetMetricEnumType.class));
     }
 
     EdgarBalanceSheetService(HttpClient client, ObjectMapper objectMapper, String userAgent, int balanceSheetPeriods,
-                             Collection<BalanceSheetMetricEnumDefinition> metricDefinitions) {
+                             Collection<BalanceSheetMetricEnumType> metricDefinitions) {
         this.client = client;
         this.objectMapper = objectMapper;
         this.userAgent = userAgent;
@@ -65,7 +65,7 @@ public final class EdgarBalanceSheetService {
                 .toList();
 
         List<StatementRow> rows = new ArrayList<>();
-        for (BalanceSheetMetricEnumDefinition definition : metricDefinitions) {
+        for (BalanceSheetMetricEnumType definition : metricDefinitions) {
             Map<String, String> values = new LinkedHashMap<>();
             for (int i = 0; i < periods.size(); i++) {
                 BalanceSheetMetric metric = metricMaps.get(i).get(definition.getKey());
@@ -96,7 +96,7 @@ public final class EdgarBalanceSheetService {
         List<BalanceSheetMetric> metrics = new ArrayList<>();
         Map<String, BalanceSheetMetric> metricsByKey = new LinkedHashMap<>();
 
-        for (BalanceSheetMetricEnumDefinition definition : metricDefinitions) {
+        for (BalanceSheetMetricEnumType definition : metricDefinitions) {
             Optional<BalanceSheetMetric> metric = findMetric(definition, companyFacts, filing)
                     .or(() -> deriveMetric(definition, metricsByKey, filing));
             metric.ifPresent(found -> {
@@ -116,11 +116,11 @@ public final class EdgarBalanceSheetService {
     }
 
     private Optional<BalanceSheetMetric> findMetric(
-            BalanceSheetMetricEnumDefinition definition,
+            BalanceSheetMetricEnumType definition,
             JsonNode companyFacts,
             AnnualFiling latest10K
     ) {
-        for (String concept : definition.getUsGaapConcepts()) {
+        for (String concept : definition.getUsGAAPConcepts()) {
             Optional<JsonNode> fact = matchingFact(companyFacts, concept, latest10K);
             if (fact.isPresent()) {
                 JsonNode node = fact.get();
@@ -141,7 +141,7 @@ public final class EdgarBalanceSheetService {
     }
 
     private Optional<BalanceSheetMetric> deriveMetric(
-            BalanceSheetMetricEnumDefinition definition,
+            BalanceSheetMetricEnumType definition,
             Map<String, BalanceSheetMetric> metricsByKey,
             AnnualFiling latest10K
     ) {
@@ -190,7 +190,7 @@ public final class EdgarBalanceSheetService {
     }
 
     private Optional<BalanceSheetMetric> sum(
-            BalanceSheetMetricEnumDefinition definition,
+            BalanceSheetMetricEnumType definition,
             AnnualFiling latest10K,
             Map<String, BalanceSheetMetric> metricsByKey,
             String firstKey,
@@ -205,7 +205,7 @@ public final class EdgarBalanceSheetService {
     }
 
     private Optional<BalanceSheetMetric> subtract(
-            BalanceSheetMetricEnumDefinition definition,
+            BalanceSheetMetricEnumType definition,
             AnnualFiling latest10K,
             Map<String, BalanceSheetMetric> metricsByKey,
             String minuendKey,
@@ -225,7 +225,7 @@ public final class EdgarBalanceSheetService {
     }
 
     private Optional<BalanceSheetMetric> residual(
-            BalanceSheetMetricEnumDefinition definition,
+            BalanceSheetMetricEnumType definition,
             AnnualFiling latest10K,
             Map<String, BalanceSheetMetric> metricsByKey,
             String totalKey,
@@ -252,7 +252,7 @@ public final class EdgarBalanceSheetService {
     }
 
     private BalanceSheetMetric derived(
-            BalanceSheetMetricEnumDefinition definition,
+            BalanceSheetMetricEnumType definition,
             AnnualFiling latest10K,
             BigDecimal value,
             String formula
@@ -364,10 +364,6 @@ public final class EdgarBalanceSheetService {
             }
         }
         throw new IllegalArgumentException("Unknown ticker " + ticker);
-    }
-
-    private static BalanceSheetMetricDefinition metric(String key, String label, String section, String... concepts) {
-        return new BalanceSheetMetricDefinition(key, label, section, List.of(concepts));
     }
 
     private record AnnualFiling(

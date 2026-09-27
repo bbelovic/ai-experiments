@@ -2,7 +2,7 @@ package org.example.statements.balancesheet;
 
 import java.util.List;
 
-public enum BalanceSheetMetricEnumDefinition {
+public enum BalanceSheetMetricEnumType {
     TOTAL_ASSETS("total_assets", "Total assets", "Assets", List.of("Assets")),
     CURRENT_ASSETS("current_assets", "Current assets", "Assets", List.of("AssetsCurrent")),
     CASH_AND_CASH_EQUIVALENTS("cash_and_cash_equivalents", "Cash & cash equivalents", "Assets",
@@ -61,14 +61,14 @@ public enum BalanceSheetMetricEnumDefinition {
     private final String key;
     private final String label;
     private final String section;
-    private final List<String> usGaapConcepts;
+    private final List<String> usGAAPConcepts;
 
 
-    BalanceSheetMetricEnumDefinition(String key, String label, String section, List<String> usGaapConcepts) {
+    BalanceSheetMetricEnumType(String key, String label, String section, List<String> usGAAPConcepts) {
         this.key = key;
         this.label = label;
         this.section = section;
-        this.usGaapConcepts = usGaapConcepts;
+        this.usGAAPConcepts = usGAAPConcepts;
     }
 
     public String getLabel() {
@@ -83,7 +83,7 @@ public enum BalanceSheetMetricEnumDefinition {
         return section;
     }
 
-    public List<String> getUsGaapConcepts() {
-        return usGaapConcepts;
+    public List<String> getUsGAAPConcepts() {
+        return usGAAPConcepts;
     }
 }

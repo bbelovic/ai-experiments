@@ -15,7 +15,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.example.statements.balancesheet.BalanceSheetMetricEnumDefinition.*;
+import static org.example.statements.balancesheet.BalanceSheetMetricEnumType.*;
 import static org.example.statements.balancesheet.EdgarBalanceSheetService.VALUE_FORMAT;
 
 class EdgarBalanceSheetServiceTest {
@@ -25,7 +25,7 @@ class EdgarBalanceSheetServiceTest {
             objectMapper,
             "ai-experiments test@example.com",
             4,
-            EnumSet.allOf(BalanceSheetMetricEnumDefinition.class)
+            EnumSet.allOf(BalanceSheetMetricEnumType.class)
     );
 
     @Test
@@ -53,7 +53,7 @@ class EdgarBalanceSheetServiceTest {
         assertThat(statements.statements()).hasSize(1);
         assertThat(statements.statements().getFirst().rows()).isNotEmpty();
 
-        Map<BalanceSheetMetricEnumDefinition, Long> expectedMetricsAndValues = new EnumMap<>(BalanceSheetMetricEnumDefinition.class);
+        Map<BalanceSheetMetricEnumType, Long> expectedMetricsAndValues = new EnumMap<>(BalanceSheetMetricEnumType.class);
         expectedMetricsAndValues.put(CASH_AND_CASH_EQUIVALENTS, 35934000000L);
         expectedMetricsAndValues.put(SHORT_TERM_INVESTMENTS, 18763000000L);
         expectedMetricsAndValues.put(CASH_AND_SHORT_TERM_INVESTMENTS, (35934000000L + 18763000000L));
