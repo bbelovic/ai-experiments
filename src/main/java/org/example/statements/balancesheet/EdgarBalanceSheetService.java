@@ -72,7 +72,7 @@ public final class EdgarBalanceSheetService {
                 values.put(periods.get(i), metric == null ? "0" : formatValue(metric.value()));
             }
             rows.add(new StatementRow(
-                    definition.getLabel(),
+                    definition,
                     Collections.unmodifiableMap(new LinkedHashMap<>(values))
             ));
         }
@@ -277,6 +277,10 @@ public final class EdgarBalanceSheetService {
         }
 
         List<JsonNode> matches = new ArrayList<>();
+        List<JsonNode> list = facts.valueStream()
+                .filter(jsonNode -> latest10K.accessionNumber().equals(jsonNode.path("accn").asText())
+                        && jsonNode.path("val").isNumber())
+                .toList();
         for (JsonNode fact : facts) {
             if (latest10K.accessionNumber().equals(fact.path("accn").asText())
                     && fact.path("val").isNumber()) {
