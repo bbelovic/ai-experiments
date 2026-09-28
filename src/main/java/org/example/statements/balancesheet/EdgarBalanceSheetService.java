@@ -69,7 +69,7 @@ public final class EdgarBalanceSheetService {
             Map<String, String> values = new LinkedHashMap<>();
             for (int i = 0; i < periods.size(); i++) {
                 BalanceSheetMetric metric = metricMaps.get(i).get(definition.getKey());
-                values.put(periods.get(i), metric == null ? "0" : formatValue(metric.value()));
+                values.put(periods.get(i), metric == null ? null : formatValue(metric.value()));
             }
             rows.add(new StatementRow(
                     definition,
@@ -232,7 +232,9 @@ public final class EdgarBalanceSheetService {
             String... componentKeys
     ) {
         BalanceSheetMetric total = metricsByKey.get(totalKey);
-        if (total == null) {
+        if (total == null || Arrays.stream(componentKeys)
+                .map(metricsByKey::get)
+                .anyMatch(Objects::isNull)) {
             return Optional.empty();
         }
 
@@ -277,10 +279,6 @@ public final class EdgarBalanceSheetService {
         }
 
         List<JsonNode> matches = new ArrayList<>();
-        List<JsonNode> list = facts.valueStream()
-                .filter(jsonNode -> latest10K.accessionNumber().equals(jsonNode.path("accn").asText())
-                        && jsonNode.path("val").isNumber())
-                .toList();
         for (JsonNode fact : facts) {
             if (latest10K.accessionNumber().equals(fact.path("accn").asText())
                     && fact.path("val").isNumber()) {

@@ -38,16 +38,16 @@ class EdgarBalanceSheetServiceTest {
                 EnumSet.allOf(BalanceSheetMetricEnumType.class)
         );
 
-        EdgarStatement statements = localService.extractAnnualBalanceSheetStatement(
+        EdgarStatement actualStatements = localService.extractAnnualBalanceSheetStatement(
                 "aapl",
                 submissions,
                 companyFacts
         );
 
-        assertThat(statements.ticker()).isEqualTo("AAPL");
-        assertThat(statements.source()).isEqualTo("EDGAR");
-        assertThat(statements.statements()).hasSize(1);
-        assertThat(statements.statements().getFirst().rows()).isNotEmpty();
+        assertThat(actualStatements.ticker()).isEqualTo("AAPL");
+        assertThat(actualStatements.source()).isEqualTo("EDGAR");
+        assertThat(actualStatements.statements()).hasSize(1);
+        assertThat(actualStatements.statements().getFirst().rows()).isNotEmpty();
 
         Map<BalanceSheetMetricEnumType, Long> expectedMetricsAndValues = new EnumMap<>(BalanceSheetMetricEnumType.class);
         expectedMetricsAndValues.put(TOTAL_ASSETS, 359241000000L);
@@ -62,8 +62,8 @@ class EdgarBalanceSheetServiceTest {
                 expectedMetricsAndValues.get(RECEIVABLES) + expectedMetricsAndValues.get(INVENTORY)) ));
         expectedMetricsAndValues.put(NON_CURRENT_ASSETS, (expectedMetricsAndValues.get(TOTAL_ASSETS) - expectedMetricsAndValues.get(CURRENT_ASSETS)));
         expectedMetricsAndValues.put(PPE, 49834000000L);
-        expectedMetricsAndValues.put(GOODWILL, 0L);
-        expectedMetricsAndValues.put(INTANGIBLE_ASSETS, 0L);
+        expectedMetricsAndValues.put(GOODWILL, null);
+        expectedMetricsAndValues.put(INTANGIBLE_ASSETS, null);
         expectedMetricsAndValues.put(LONG_TERM_INVESTMENTS, 77723000000L);
         expectedMetricsAndValues.put(TAX_ASSETS, 27451000000L);
         expectedMetricsAndValues.put(OTHER_NON_CURRENT_ASSETS, 83727000000L);
@@ -71,34 +71,37 @@ class EdgarBalanceSheetServiceTest {
         expectedMetricsAndValues.put(CURRENT_LIABILITIES, 165631000000L);
         expectedMetricsAndValues.put(ACCOUNTS_PAYABLE, 69860000000L);
         expectedMetricsAndValues.put(SHORT_TERM_DEBT, 12350000000L);
-        expectedMetricsAndValues.put(TAX_PAYABLES, 0L);
+        expectedMetricsAndValues.put(TAX_PAYABLES, null);
         expectedMetricsAndValues.put(CURRENT_DEFERRED_REVENUE, 9055000000L);
         expectedMetricsAndValues.put(NON_CURRENT_LIABILITIES, 119877000000L);
         expectedMetricsAndValues.put(LONG_TERM_DEBT, 78328000000L);
-        expectedMetricsAndValues.put(NON_CURRENT_DEFERRED_REVENUE, 0L);
-        expectedMetricsAndValues.put(DEFERRED_TAX, 0L);
-        expectedMetricsAndValues.put(OTHER_CURRENT_LIABILITIES, (expectedMetricsAndValues.get(CURRENT_LIABILITIES) -
-                (expectedMetricsAndValues.get(ACCOUNTS_PAYABLE) + expectedMetricsAndValues.get(SHORT_TERM_DEBT) + expectedMetricsAndValues.get(TAX_PAYABLES) + expectedMetricsAndValues.get(CURRENT_DEFERRED_REVENUE)) ));
+        expectedMetricsAndValues.put(NON_CURRENT_DEFERRED_REVENUE, null);
+        expectedMetricsAndValues.put(DEFERRED_TAX, null);
+        expectedMetricsAndValues.put(OTHER_CURRENT_LIABILITIES, null);
         expectedMetricsAndValues.put(OTHER_NON_CURRENT_LIABILITIES, 41549000000L);
         expectedMetricsAndValues.put(TOTAL_EQUITY, 73733000000L);
-        expectedMetricsAndValues.put(PREFERRED_STOCK, 0L);
+        expectedMetricsAndValues.put(PREFERRED_STOCK, null);
         expectedMetricsAndValues.put(COMMON_STOCK, 93568000000L);
         expectedMetricsAndValues.put(RETAINED_EARNINGS, -14264000000L);
         expectedMetricsAndValues.put(AOCI, -5571000000L);
-        expectedMetricsAndValues.put(OTHER_EQUITY, 0L);
+        expectedMetricsAndValues.put(OTHER_EQUITY, null);
 
         expectedMetricsAndValues.forEach((metricDefinition, expectedValue) -> {
-                    assertThat(row(statements, metricDefinition).values())
-                            .as("Expecting metric [%s] to have value [%s]", metricDefinition, VALUE_FORMAT.format(expectedValue))
-                            .containsEntry("2025", VALUE_FORMAT.format(expectedValue));
+                    assertThat(row(actualStatements, metricDefinition).values())
+                            .as("Expecting metric [%s] to have value [%s]", metricDefinition, format(expectedValue))
+                            .containsEntry("2025", format(expectedValue));
                 });
 
         List.of("AccruedIncomeTaxesNoncurrent", "AccruedIncomeTaxesCurrent", "AccruedLiabilities")
                 .forEach(notPresent -> {
-                    assertThatThrownBy(() -> row(statements, notPresent))
+                    assertThatThrownBy(() -> row(actualStatements, notPresent))
                             .isInstanceOf(NoSuchElementException.class)
                             .hasMessage("No value present");
                 });
+    }
+
+    private static String format(Long valueToFormat) {
+        return valueToFormat == null ? null : VALUE_FORMAT.format(valueToFormat);
     }
 
     @Test
@@ -246,12 +249,19 @@ class EdgarBalanceSheetServiceTest {
                 .containsEntry("2022", "36,954,000");
         assertThat(row(statements, CASH_AND_SHORT_TERM_INVESTMENTS).values())
                 .containsEntry("2025", "4,493,000")
-                .containsEntry("2024", "0");
+                .containsEntry("2024", null)
+                .containsEntry("2023", null)
+                .containsEntry("2022", null);
         assertThat(row(statements, OTHER_CURRENT_ASSETS).values())
-                .containsEntry("2025", "-282,000");
+                .containsEntry("2025", "-282,000")
+                .containsEntry("2024", null)
+                .containsEntry("2023", null)
+                .containsEntry("2022", null);
         assertThat(row(statements, TOTAL_EQUITY).values())
                 .containsEntry("2025", "-3,502,000")
-                .containsEntry("2024", "0");
+                .containsEntry("2024", null)
+                .containsEntry("2023", null)
+                .containsEntry("2022", null);
     }
 
     private StatementRow row(EdgarStatement statements, BalanceSheetMetricEnumType metricType) {
