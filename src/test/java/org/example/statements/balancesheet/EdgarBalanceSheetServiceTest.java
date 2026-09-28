@@ -8,10 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
 import java.net.http.HttpClient;
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -74,21 +71,21 @@ class EdgarBalanceSheetServiceTest {
         expectedMetricsAndValues.put(CURRENT_LIABILITIES, 165631000000L);
         expectedMetricsAndValues.put(ACCOUNTS_PAYABLE, 69860000000L);
         expectedMetricsAndValues.put(SHORT_TERM_DEBT, 12350000000L);
-        expectedMetricsAndValues.put(TAX_PAYABLES, 0L); // TODO: provide expected value
-        expectedMetricsAndValues.put(CURRENT_DEFERRED_REVENUE, 9055000000L); // TODO: provide expected value
-        expectedMetricsAndValues.put(NON_CURRENT_LIABILITIES, 119877000000L); // TODO: provide expected value
-        expectedMetricsAndValues.put(LONG_TERM_DEBT, 78328000000L); // TODO: provide expected value
-        expectedMetricsAndValues.put(NON_CURRENT_DEFERRED_REVENUE, 0L); // TODO: provide expected value
-        expectedMetricsAndValues.put(DEFERRED_TAX, 0L); // TODO: provide expected value
+        expectedMetricsAndValues.put(TAX_PAYABLES, 0L);
+        expectedMetricsAndValues.put(CURRENT_DEFERRED_REVENUE, 9055000000L);
+        expectedMetricsAndValues.put(NON_CURRENT_LIABILITIES, 119877000000L);
+        expectedMetricsAndValues.put(LONG_TERM_DEBT, 78328000000L);
+        expectedMetricsAndValues.put(NON_CURRENT_DEFERRED_REVENUE, 0L);
+        expectedMetricsAndValues.put(DEFERRED_TAX, 0L);
         expectedMetricsAndValues.put(OTHER_CURRENT_LIABILITIES, (expectedMetricsAndValues.get(CURRENT_LIABILITIES) -
                 (expectedMetricsAndValues.get(ACCOUNTS_PAYABLE) + expectedMetricsAndValues.get(SHORT_TERM_DEBT) + expectedMetricsAndValues.get(TAX_PAYABLES) + expectedMetricsAndValues.get(CURRENT_DEFERRED_REVENUE)) ));
-        expectedMetricsAndValues.put(OTHER_NON_CURRENT_LIABILITIES, 41549000000L); // TODO: provide expected value
-        expectedMetricsAndValues.put(TOTAL_EQUITY, 0L); // TODO: provide expected value
-        expectedMetricsAndValues.put(PREFERRED_STOCK, 0L); // TODO: provide expected value
-        expectedMetricsAndValues.put(COMMON_STOCK, 0L); // TODO: provide expected value
-        expectedMetricsAndValues.put(RETAINED_EARNINGS, 0L); // TODO: provide expected value
-        expectedMetricsAndValues.put(AOCI, 0L); // TODO: provide expected value
-        expectedMetricsAndValues.put(OTHER_EQUITY, 0L); // TODO: provide expected value
+        expectedMetricsAndValues.put(OTHER_NON_CURRENT_LIABILITIES, 41549000000L);
+        expectedMetricsAndValues.put(TOTAL_EQUITY, 73733000000L);
+        expectedMetricsAndValues.put(PREFERRED_STOCK, 0L);
+        expectedMetricsAndValues.put(COMMON_STOCK, 93568000000L);
+        expectedMetricsAndValues.put(RETAINED_EARNINGS, -14264000000L);
+        expectedMetricsAndValues.put(AOCI, -5571000000L);
+        expectedMetricsAndValues.put(OTHER_EQUITY, 0L);
 
         expectedMetricsAndValues.forEach((metricDefinition, expectedValue) -> {
                     assertThat(row(statements, metricDefinition).values())
@@ -96,11 +93,12 @@ class EdgarBalanceSheetServiceTest {
                             .containsEntry("2025", VALUE_FORMAT.format(expectedValue));
                 });
 
-//        List.of("AccruedIncomeTaxesNoncurrent", "AccruedIncomeTaxesCurrent", "AccruedLiabilities")
-//                .forEach(notPresent -> {
-//                    assertThatThrownBy(() -> row(statements, notPresent))
-//                            .hasMessage("No value present");
-//                });
+        List.of("AccruedIncomeTaxesNoncurrent", "AccruedIncomeTaxesCurrent", "AccruedLiabilities")
+                .forEach(notPresent -> {
+                    assertThatThrownBy(() -> row(statements, notPresent))
+                            .isInstanceOf(NoSuchElementException.class)
+                            .hasMessage("No value present");
+                });
     }
 
     @Test
@@ -259,6 +257,13 @@ class EdgarBalanceSheetServiceTest {
     private StatementRow row(EdgarStatement statements, BalanceSheetMetricEnumType metricType) {
         return statements.statements().getFirst().rows().stream()
                 .filter(row -> row.metricType() == metricType)
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private StatementRow row(EdgarStatement statements, String label) {
+        return statements.statements().getFirst().rows().stream()
+                .filter(row -> row.metricType().getLabel().equals(label))
                 .findFirst()
                 .orElseThrow();
     }
