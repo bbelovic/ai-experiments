@@ -1,5 +1,6 @@
 package org.example.statements.balancesheet;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.statements.EdgarStatement;
@@ -106,6 +107,54 @@ class EdgarBalanceSheetServiceTest {
 
     @Test
     void extractsStatementShapedBalanceSheetFromRecent10Ks() throws Exception {
+        EdgarStatement statements = getStatementsFrom10K();
+
+        assertThat(statements.ticker()).isEqualTo("MO");
+        assertThat(statements.source()).isEqualTo("EDGAR");
+        assertThat(statements.sourceUrl()).containsExactly(
+                "https://www.sec.gov/Archives/edgar/data/764180/000076418026000010/mo-20251231.htm",
+                "https://www.sec.gov/Archives/edgar/data/764180/000076418025000010/mo-20241231.htm",
+                "https://www.sec.gov/Archives/edgar/data/764180/000076418024000010/mo-20231231.htm",
+                "https://www.sec.gov/Archives/edgar/data/764180/000076418023000010/mo-20221231.htm");
+        assertThat(statements.statements()).hasSize(1);
+        assertThat(statements.statements().getFirst().name()).isEqualTo("Balance Sheet");
+        assertThat(statements.statements().getFirst().periods()).containsExactly("2025", "2024", "2023", "2022");
+
+        assertThat(row(statements, TOTAL_ASSETS).values())
+                .containsEntry("2025", "35,017,000")
+                .containsEntry("2024", "35,177,000")
+                .containsEntry("2023", "38,570,000")
+                .containsEntry("2022", "36,954,000");
+        assertThat(row(statements, CASH_AND_SHORT_TERM_INVESTMENTS).values())
+                .containsEntry("2025", "4,493,000")
+                .containsEntry("2024", null)
+                .containsEntry("2023", null)
+                .containsEntry("2022", null);
+        assertThat(row(statements, OTHER_CURRENT_ASSETS).values())
+                .containsEntry("2025", "-282,000")
+                .containsEntry("2024", null)
+                .containsEntry("2023", null)
+                .containsEntry("2022", null);
+        assertThat(row(statements, TOTAL_EQUITY).values())
+                .containsEntry("2025", "0")
+                .containsEntry("2024", null)
+                .containsEntry("2023", null)
+                .containsEntry("2022", null);
+    }
+
+    @Test
+    void missingFactIsSerializedAsNull() throws Exception {
+        EdgarStatement statements = getStatementsFrom10K();
+        StatementRow totalEquity = row(statements, TOTAL_EQUITY);
+        String totalEquityJson = objectMapper.writeValueAsString(totalEquity);
+        JsonNode jsonNode = objectMapper.readTree(totalEquityJson).path("values");
+        assertThat(jsonNode.has("2025")).isTrue();
+        assertThat(jsonNode.path("2025").asText()).isEqualTo("0");
+        assertThat(jsonNode.has("2024")).isTrue();
+        assertThat(jsonNode.path("2024").isNull()).isTrue();
+    }
+
+    private EdgarStatement getStatementsFrom10K() throws JsonProcessingException {
         EdgarStatement statements = service.extractAnnualBalanceSheetStatement(
                 "mo",
                 objectMapper.readTree("""
@@ -221,7 +270,7 @@ class EdgarBalanceSheetServiceTest {
                               "StockholdersEquity": {
                                 "units": {
                                   "USD": [
-                                    {"accn": "0000764180-26-000010", "filed": "2026-02-14", "end": "2025-12-31", "val": -3502000}
+                                    {"accn": "0000764180-26-000010", "filed": "2026-02-14", "end": "2025-12-31", "val": 0}
                                   ]
                                 }
                               }
@@ -230,38 +279,7 @@ class EdgarBalanceSheetServiceTest {
                         }
                         """)
         );
-
-        assertThat(statements.ticker()).isEqualTo("MO");
-        assertThat(statements.source()).isEqualTo("EDGAR");
-        assertThat(statements.sourceUrl()).containsExactly(
-                "https://www.sec.gov/Archives/edgar/data/764180/000076418026000010/mo-20251231.htm",
-                "https://www.sec.gov/Archives/edgar/data/764180/000076418025000010/mo-20241231.htm",
-                "https://www.sec.gov/Archives/edgar/data/764180/000076418024000010/mo-20231231.htm",
-                "https://www.sec.gov/Archives/edgar/data/764180/000076418023000010/mo-20221231.htm");
-        assertThat(statements.statements()).hasSize(1);
-        assertThat(statements.statements().getFirst().name()).isEqualTo("Balance Sheet");
-        assertThat(statements.statements().getFirst().periods()).containsExactly("2025", "2024", "2023", "2022");
-
-        assertThat(row(statements, TOTAL_ASSETS).values())
-                .containsEntry("2025", "35,017,000")
-                .containsEntry("2024", "35,177,000")
-                .containsEntry("2023", "38,570,000")
-                .containsEntry("2022", "36,954,000");
-        assertThat(row(statements, CASH_AND_SHORT_TERM_INVESTMENTS).values())
-                .containsEntry("2025", "4,493,000")
-                .containsEntry("2024", null)
-                .containsEntry("2023", null)
-                .containsEntry("2022", null);
-        assertThat(row(statements, OTHER_CURRENT_ASSETS).values())
-                .containsEntry("2025", "-282,000")
-                .containsEntry("2024", null)
-                .containsEntry("2023", null)
-                .containsEntry("2022", null);
-        assertThat(row(statements, TOTAL_EQUITY).values())
-                .containsEntry("2025", "-3,502,000")
-                .containsEntry("2024", null)
-                .containsEntry("2023", null)
-                .containsEntry("2022", null);
+        return statements;
     }
 
     private StatementRow row(EdgarStatement statements, BalanceSheetMetricEnumType metricType) {
