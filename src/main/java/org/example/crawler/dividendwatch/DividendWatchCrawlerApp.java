@@ -1,10 +1,3 @@
-///usr/bin/env jbang "$0" "$@" ; exit $?
-//DEPS com.fasterxml.jackson.core:jackson-databind:2.19.2
-//DEPS org.jsoup:jsoup:1.17.2
-//DEPS com.microsoft.playwright:playwright:1.61.0
-//DEPS org.slf4j:slf4j-api:2.0.18
-//DEPS ch.qos.logback:logback-classic:1.5.35
-
 package org.example.crawler.dividendwatch;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
