@@ -2,6 +2,7 @@ package org.example.statements.income;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.statements.FinancialStatements;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -79,7 +80,7 @@ public final class EdgarIncomeStatementService {
         this.incomeStatementPeriods = incomeStatementPeriods;
     }
 
-    public EdgarIncomeStatement annualIncomeStatement(String ticker) throws IOException, InterruptedException {
+    public FinancialStatements annualIncomeStatement(String ticker) throws IOException, InterruptedException {
         JsonNode companies = fetchJson("https://www.sec.gov/files/company_tickers.json");
         String cik = findCikForTicker(companies, ticker);
         String paddedCik = String.format("%010d", Long.parseLong(cik));
@@ -89,7 +90,7 @@ public final class EdgarIncomeStatementService {
         return extractAnnualIncomeStatement(ticker, submissions, companyFacts);
     }
 
-    EdgarIncomeStatement extractAnnualIncomeStatement(String ticker, JsonNode submissions, JsonNode companyFacts) {
+    FinancialStatements extractAnnualIncomeStatement(String ticker, JsonNode submissions, JsonNode companyFacts) {
         List<AnnualFiling> filings = latest10Ks(submissions, incomeStatementPeriods);
         List<String> periods = filings.stream()
                 .map(AnnualFiling::fiscalYear)
@@ -98,14 +99,14 @@ public final class EdgarIncomeStatementService {
                 .map(filing -> metricsByKey(metricsForFiling(companyFacts, filing)))
                 .toList();
 
-        List<EdgarIncomeStatement.StatementRow> rows = new ArrayList<>();
+        List<FinancialStatements.StatementRow> rows = new ArrayList<>();
         for (IncomeStatementMetricDefinition definition : METRICS) {
             Map<String, String> values = new LinkedHashMap<>();
             for (int i = 0; i < periods.size(); i++) {
                 IncomeStatementMetric metric = metricMaps.get(i).get(definition.key());
                 values.put(periods.get(i), metric == null ? "0" : formatValue(metric.value()));
             }
-            rows.add(new EdgarIncomeStatement.StatementRow(
+            rows.add(new FinancialStatements.StatementRow(
                     definition.label(),
                     Collections.unmodifiableMap(new LinkedHashMap<>(values))
             ));
@@ -114,11 +115,11 @@ public final class EdgarIncomeStatementService {
         List<String> sourceUrl = filings.stream()
                 .map(filing -> filing.sourceUrl(companyFacts.path("cik").asText()))
                 .toList();
-        return new EdgarIncomeStatement(
+        return new FinancialStatements(
                 ticker.trim().toUpperCase(Locale.ROOT),
                 "EDGAR",
                 sourceUrl,
-                List.of(new EdgarIncomeStatement.StatementTable(
+                List.of(new FinancialStatements.StatementTable(
                         "Income Statement",
                         periods,
                         List.copyOf(rows)

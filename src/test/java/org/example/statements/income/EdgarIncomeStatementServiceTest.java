@@ -2,6 +2,7 @@ package org.example.statements.income;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.statements.FinancialStatements;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -24,7 +25,7 @@ class EdgarIncomeStatementServiceTest {
         JsonNode submissions = readFixtureJson("AAPL-submissions.json");
         JsonNode companyFacts = readFixtureJson("AAPL-company-facts.json");
 
-        EdgarIncomeStatement statements = service.extractAnnualIncomeStatement(
+        FinancialStatements statements = service.extractAnnualIncomeStatement(
                 "aapl",
                 submissions,
                 companyFacts
@@ -57,7 +58,7 @@ class EdgarIncomeStatementServiceTest {
                 .containsEntry("2025", valueFormat.format(15004697000L));
     }
 
-    private EdgarIncomeStatement.StatementRow row(EdgarIncomeStatement statements, String metric) {
+    private FinancialStatements.StatementRow row(FinancialStatements statements, String metric) {
         return statements.statements().getFirst().rows().stream()
                 .filter(row -> row.metric().equals(metric))
                 .findFirst()

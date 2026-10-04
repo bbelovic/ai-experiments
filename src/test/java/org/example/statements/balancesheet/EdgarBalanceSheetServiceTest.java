@@ -3,8 +3,8 @@ package org.example.statements.balancesheet;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.example.statements.EdgarStatement;
-import org.example.statements.StatementRow;
+import org.example.statements.FinancialStatements;
+import org.example.statements.FinancialStatements.StatementRow;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -39,7 +39,7 @@ class EdgarBalanceSheetServiceTest {
                 EnumSet.allOf(BalanceSheetMetricEnumType.class)
         );
 
-        EdgarStatement actualStatements = localService.extractAnnualBalanceSheetStatement(
+        FinancialStatements actualStatements = localService.extractAnnualBalanceSheetStatement(
                 "aapl",
                 submissions,
                 companyFacts
@@ -49,6 +49,10 @@ class EdgarBalanceSheetServiceTest {
         assertThat(actualStatements.source()).isEqualTo("EDGAR");
         assertThat(actualStatements.statements()).hasSize(1);
         assertThat(actualStatements.statements().getFirst().rows()).isNotEmpty();
+        assertThat(actualStatements.statements().getFirst().rows())
+                .extracting(StatementRow::metric)
+                .doesNotHaveDuplicates()
+                .contains("Current deferred revenue", "Non-current deferred revenue");
 
         Map<BalanceSheetMetricEnumType, Long> expectedMetricsAndValues = new EnumMap<>(BalanceSheetMetricEnumType.class);
         expectedMetricsAndValues.put(TOTAL_ASSETS, 359241000000L);
@@ -107,7 +111,7 @@ class EdgarBalanceSheetServiceTest {
 
     @Test
     void extractsStatementShapedBalanceSheetFromRecent10Ks() throws Exception {
-        EdgarStatement statements = getStatementsFrom10K();
+        FinancialStatements statements = getStatementsFrom10K();
 
         assertThat(statements.ticker()).isEqualTo("MO");
         assertThat(statements.source()).isEqualTo("EDGAR");
@@ -144,9 +148,11 @@ class EdgarBalanceSheetServiceTest {
 
     @Test
     void missingFactIsSerializedAsNull() throws Exception {
-        EdgarStatement statements = getStatementsFrom10K();
+        FinancialStatements statements = getStatementsFrom10K();
         StatementRow totalEquity = row(statements, TOTAL_EQUITY);
         String totalEquityJson = objectMapper.writeValueAsString(totalEquity);
+        assertThat(objectMapper.readTree(totalEquityJson).path("metric").asText()).isEqualTo(TOTAL_EQUITY.getLabel());
+        assertThat(objectMapper.readTree(totalEquityJson).has("metricType")).isFalse();
         JsonNode jsonNode = objectMapper.readTree(totalEquityJson).path("values");
         assertThat(jsonNode.has("2025")).isTrue();
         assertThat(jsonNode.path("2025").asText()).isEqualTo("0");
@@ -154,8 +160,8 @@ class EdgarBalanceSheetServiceTest {
         assertThat(jsonNode.path("2024").isNull()).isTrue();
     }
 
-    private EdgarStatement getStatementsFrom10K() throws JsonProcessingException {
-        EdgarStatement statements = service.extractAnnualBalanceSheetStatement(
+    private FinancialStatements getStatementsFrom10K() throws JsonProcessingException {
+        FinancialStatements statements = service.extractAnnualBalanceSheetStatement(
                 "mo",
                 objectMapper.readTree("""
                         {
@@ -282,16 +288,13 @@ class EdgarBalanceSheetServiceTest {
         return statements;
     }
 
-    private StatementRow row(EdgarStatement statements, BalanceSheetMetricEnumType metricType) {
-        return statements.statements().getFirst().rows().stream()
-                .filter(row -> row.metricType() == metricType)
-                .findFirst()
-                .orElseThrow();
+    private StatementRow row(FinancialStatements statements, BalanceSheetMetricEnumType metricType) {
+        return row(statements, metricType.getLabel());
     }
 
-    private StatementRow row(EdgarStatement statements, String label) {
+    private StatementRow row(FinancialStatements statements, String label) {
         return statements.statements().getFirst().rows().stream()
-                .filter(row -> row.metricType().getLabel().equals(label))
+                .filter(row -> row.metric().equals(label))
                 .findFirst()
                 .orElseThrow();
     }

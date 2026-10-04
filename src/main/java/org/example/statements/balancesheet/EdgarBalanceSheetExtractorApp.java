@@ -1,7 +1,7 @@
 package org.example.statements.balancesheet;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.example.statements.EdgarStatement;
+import org.example.statements.FinancialStatements;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,7 +14,7 @@ public final class EdgarBalanceSheetExtractorApp {
         String ticker = args.length > 0 ? args[0].trim() : env("EDGAR_STOCK_TICKER", "AAPL");
         String userAgent = env("EDGAR_USER_AGENT", "ai-experiments test@example.com");
 
-        EdgarStatement statements = new EdgarBalanceSheetService(userAgent, 4)
+        FinancialStatements statements = new EdgarBalanceSheetService(userAgent, 4)
                 .annualBalanceSheetStatement(ticker);
 
         var outputFilePath = env("org.example.output.filepath", "");

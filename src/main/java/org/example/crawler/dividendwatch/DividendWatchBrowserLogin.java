@@ -15,6 +15,7 @@ import com.microsoft.playwright.options.Cookie;
 import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.SelectOption;
 import com.microsoft.playwright.options.WaitForSelectorState;
+import org.example.statements.FinancialStatements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,19 +93,19 @@ public final class DividendWatchBrowserLogin {
         });
     }
 
-    public DividendWatchFinancialStatements scrapeFinancialStatements(String ticker) {
+    public FinancialStatements scrapeFinancialStatements(String ticker) {
         String normalizedTicker = ticker.trim().toUpperCase();
         return withAuthenticatedPage((page, context) -> {
             openStockPage(page, normalizedTicker);
             openFundamentals(page);
 
-            List<DividendWatchFinancialStatements.StatementTable> statements = new ArrayList<>();
+            List<FinancialStatements.StatementTable> statements = new ArrayList<>();
             for (String statementName : STATEMENT_NAMES) {
                 selectStatement(page, statementName);
                 statements.add(extractVisibleStatementTable(page, statementName));
             }
 
-            return new DividendWatchFinancialStatements(normalizedTicker, "DIVIDEND_WATCH", page.url(), List.copyOf(statements));
+            return new FinancialStatements(normalizedTicker, "DIVIDEND_WATCH", List.of(page.url()), List.copyOf(statements));
         });
     }
 
@@ -282,7 +283,7 @@ public final class DividendWatchBrowserLogin {
         debug(page, "selected " + statementName);
     }
 
-    private DividendWatchFinancialStatements.StatementTable extractVisibleStatementTable(Page page, String statementName) throws IOException {
+    private FinancialStatements.StatementTable extractVisibleStatementTable(Page page, String statementName) throws IOException {
         String json = page.locator("body").evaluate("""
                 async () => {
                     const visible = element => {
@@ -402,7 +403,7 @@ public final class DividendWatchBrowserLogin {
         }
 
         List<String> periods = periodsFrom(rows.getFirst());
-        List<DividendWatchFinancialStatements.StatementRow> statementRows = new ArrayList<>();
+        List<FinancialStatements.StatementRow> statementRows = new ArrayList<>();
         for (List<String> row : rows.subList(1, rows.size())) {
             if (row.isEmpty() || row.getFirst().isBlank()) {
                 continue;
@@ -412,13 +413,13 @@ public final class DividendWatchBrowserLogin {
                 int cellIndex = i + 1;
                 values.put(periods.get(i), cellIndex < row.size() ? row.get(cellIndex) : "");
             }
-            statementRows.add(new DividendWatchFinancialStatements.StatementRow(
+            statementRows.add(new FinancialStatements.StatementRow(
                     row.getFirst(),
                     Collections.unmodifiableMap(new LinkedHashMap<>(values))
             ));
         }
 
-        return new DividendWatchFinancialStatements.StatementTable(statementName, periods, List.copyOf(statementRows));
+        return new FinancialStatements.StatementTable(statementName, periods, List.copyOf(statementRows));
     }
 
     private List<String> periodsFrom(List<String> header) {

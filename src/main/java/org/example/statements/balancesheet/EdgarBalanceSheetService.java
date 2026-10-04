@@ -2,9 +2,9 @@ package org.example.statements.balancesheet;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.example.statements.CommonStatementTable;
-import org.example.statements.EdgarStatement;
-import org.example.statements.StatementRow;
+import org.example.statements.FinancialStatements;
+import org.example.statements.FinancialStatements.StatementTable;
+import org.example.statements.FinancialStatements.StatementRow;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -41,7 +41,7 @@ public final class EdgarBalanceSheetService {
         this.metricDefinitions = metricDefinitions;
     }
 
-    public EdgarStatement annualBalanceSheetStatement(String ticker) throws IOException, InterruptedException {
+    public FinancialStatements annualBalanceSheetStatement(String ticker) throws IOException, InterruptedException {
         JsonNode companies = fetchJson("https://www.sec.gov/files/company_tickers.json");
         String cik = findCikForTicker(companies, ticker);
         String paddedCik = String.format("%010d", Long.parseLong(cik));
@@ -51,7 +51,7 @@ public final class EdgarBalanceSheetService {
         return extractAnnualBalanceSheetStatement(ticker, submissions, companyFacts);
     }
 
-    EdgarStatement extractAnnualBalanceSheetStatement(
+    FinancialStatements extractAnnualBalanceSheetStatement(
             String ticker,
             JsonNode submissions,
             JsonNode companyFacts
@@ -72,7 +72,7 @@ public final class EdgarBalanceSheetService {
                 values.put(periods.get(i), metric == null ? null : formatValue(metric.value()));
             }
             rows.add(new StatementRow(
-                    definition,
+                    definition.getLabel(),
                     Collections.unmodifiableMap(new LinkedHashMap<>(values))
             ));
         }
@@ -80,11 +80,11 @@ public final class EdgarBalanceSheetService {
         List<String> sourceUrl = filings.stream()
                 .map(filing -> filing.sourceUrl(companyFacts.path("cik").asText()))
                 .toList();
-        return new EdgarStatement(
+        return new FinancialStatements(
                 ticker.trim().toUpperCase(Locale.ROOT),
                 "EDGAR",
                 sourceUrl,
-                List.of(new CommonStatementTable(
+                List.of(new StatementTable(
                         "Balance Sheet",
                         periods,
                         List.copyOf(rows)

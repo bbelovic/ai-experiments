@@ -1,6 +1,7 @@
 package org.example.crawler.dividendwatch;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.statements.FinancialStatements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,7 +17,7 @@ public final class DividendWatchCrawlerApp {
         DividendWatchBrowserLogin browser = DividendWatchBrowserLogin.fromEnvironment();
         String ticker = stockTicker(args);
         if (ticker != null) {
-            DividendWatchFinancialStatements statements = browser.scrapeFinancialStatements(ticker);
+            FinancialStatements statements = browser.scrapeFinancialStatements(ticker);
             String json = new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(statements);
             String outputPath = System.getenv("DIVIDENDWATCH_STATEMENTS_OUTPUT");
             if (outputPath != null && !outputPath.isBlank()) {
