@@ -53,8 +53,8 @@ public final class DividendWatchBrowserLogin {
         this.config = config;
     }
 
-    public static DividendWatchBrowserLogin fromEnvironment() {
-        return new DividendWatchBrowserLogin(BrowserLoginConfig.fromEnvironment());
+    public static DividendWatchBrowserLogin fromSystemProperties() {
+        return new DividendWatchBrowserLogin(BrowserLoginConfig.fromSystemProperties());
     }
 
     public BrowserLoginResult login() {
@@ -804,23 +804,23 @@ public final class DividendWatchBrowserLogin {
             timeout = timeout == null ? Duration.ofSeconds(30) : timeout;
         }
 
-        public static BrowserLoginConfig fromEnvironment() {
-            String baseUrl = env("DIVIDENDWATCH_BASE_URL", DEFAULT_BASE_URL);
+        public static BrowserLoginConfig fromSystemProperties() {
+            String baseUrl = property("dividendwatch.base.url", DEFAULT_BASE_URL);
             return new BrowserLoginConfig(
-                    env("DIVIDENDWATCH_BROWSER_LOGIN_URL", env("DIVIDENDWATCH_LOGIN_URL", baseUrl + "/my-stocks")),
-                    env("DIVIDENDWATCH_USERNAME_SELECTOR", "input[name='email'], input[type='email']"),
-                    env("DIVIDENDWATCH_PASSWORD_SELECTOR", "input[name='password'], input[type='password']"),
-                    requiredEnv("DIVIDENDWATCH_USERNAME"),
-                    requiredEnv("DIVIDENDWATCH_PASSWORD"),
-                    env("DIVIDENDWATCH_SIGN_IN_SELECTOR", "text=Sign in"),
-                    env("DIVIDENDWATCH_SUBMIT_SELECTOR", "button[type='submit'], input[type='submit']"),
-                    System.getenv("DIVIDENDWATCH_POST_LOGIN_URL"),
-                    System.getenv("DIVIDENDWATCH_BROWSER_EXECUTABLE_PATH"),
-                    env("DIVIDENDWATCH_COOKIE_ACCEPT_SELECTOR", "button:has-text('Accept cookies')"),
-                    Duration.ofSeconds(Long.parseLong(env("DIVIDENDWATCH_POST_LOGIN_SETTLE_SECONDS", "5"))),
-                    Boolean.parseBoolean(env("DIVIDENDWATCH_DEBUG", "false")),
-                    Boolean.parseBoolean(env("DIVIDENDWATCH_HEADLESS", "true")),
-                    Duration.ofSeconds(Long.parseLong(env("DIVIDENDWATCH_TIMEOUT_SECONDS", "30")))
+                    property("dividendwatch.browser.login.url", property("dividendwatch.login.url", baseUrl + "/my-stocks")),
+                    property("dividendwatch.username.selector", "input[name='email'], input[type='email']"),
+                    property("dividendwatch.password.selector", "input[name='password'], input[type='password']"),
+                    requiredProperty("dividendwatch.username"),
+                    requiredProperty("dividendwatch.password"),
+                    property("dividendwatch.sign.in.selector", "text=Sign in"),
+                    property("dividendwatch.submit.selector", "button[type='submit'], input[type='submit']"),
+                    System.getProperty("dividendwatch.post.login.url"),
+                    System.getProperty("dividendwatch.browser.executable.path"),
+                    property("dividendwatch.cookie.accept.selector", "button:has-text('Accept cookies')"),
+                    Duration.ofSeconds(Long.parseLong(property("dividendwatch.post.login.settle.seconds", "5"))),
+                    Boolean.parseBoolean(property("dividendwatch.debug", "false")),
+                    Boolean.parseBoolean(property("dividendwatch.headless", "true")),
+                    Duration.ofSeconds(Long.parseLong(property("dividendwatch.timeout.seconds", "30")))
             );
         }
 
@@ -830,16 +830,16 @@ public final class DividendWatchBrowserLogin {
             }
         }
 
-        private static String requiredEnv(String name) {
-            String value = System.getenv(name);
+        private static String requiredProperty(String name) {
+            String value = System.getProperty(name);
             if (value == null || value.isBlank()) {
-                throw new IllegalStateException("Missing required environment variable " + name);
+                throw new IllegalStateException("Missing required system property " + name);
             }
             return value;
         }
 
-        private static String env(String name, String fallback) {
-            String value = System.getenv(name);
+        private static String property(String name, String fallback) {
+            String value = System.getProperty(name);
             return value == null || value.isBlank() ? fallback : value;
         }
     }
