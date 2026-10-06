@@ -67,7 +67,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>org.example.crawler.dividendwatch.DividendWatchCrawlerApp</mainClass>
+                            <mainClass>org.example.loader.dividendwatch.DividendWatchCrawlerApp</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

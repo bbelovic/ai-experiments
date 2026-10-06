@@ -1,4 +1,4 @@
-package org.example.crawler.dividendwatch;
+package org.example.loader.dividendwatch;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;

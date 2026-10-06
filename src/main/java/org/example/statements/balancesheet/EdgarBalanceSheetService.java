@@ -7,6 +7,7 @@ import org.example.statements.FinancialStatements.StatementTable;
 import org.example.statements.FinancialStatements.StatementRow;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -344,16 +345,21 @@ public final class EdgarBalanceSheetService {
     }
 
     private JsonNode fetchJson(String url) throws IOException, InterruptedException {
-        HttpResponse<String> response = client.send(
-                HttpRequest.newBuilder(URI.create(url))
-                        .GET()
-                        .header("Accept", "application/json")
-                        .header("User-Agent", userAgent)
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
+
+        try {
+            HttpResponse<String> response = client.send(
+                    HttpRequest.newBuilder(URI.create(url))
+                            .GET()
+                            .header("Accept", "application/json")
+                            .header("User-Agent", userAgent)
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+        } catch (IOException | InterruptedException e) {
+            throw new UncheckedIOException(e);
+        }
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IOException("SEC request failed with HTTP " + response.statusCode() + " for " + url);
+            throw new IllegalStateException("SEC request failed with HTTP " + response.statusCode() + " for " + url);
         }
         return objectMapper.readTree(response.body());
     }

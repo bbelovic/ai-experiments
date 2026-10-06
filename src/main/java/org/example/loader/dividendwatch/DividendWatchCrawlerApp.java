@@ -1,4 +1,4 @@
-package org.example.crawler.dividendwatch;
+package org.example.loader.dividendwatch;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.statements.FinancialStatements;
