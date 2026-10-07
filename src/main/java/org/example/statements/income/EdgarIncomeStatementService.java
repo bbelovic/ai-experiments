@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.statements.FinancialStatements;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -80,7 +81,7 @@ public final class EdgarIncomeStatementService {
         this.incomeStatementPeriods = incomeStatementPeriods;
     }
 
-    public FinancialStatements annualIncomeStatement(String ticker) throws IOException, InterruptedException {
+    public FinancialStatements annualIncomeStatement(String ticker) {
         JsonNode companies = fetchJson("https://www.sec.gov/files/company_tickers.json");
         String cik = findCikForTicker(companies, ticker);
         String paddedCik = String.format("%010d", Long.parseLong(cik));
@@ -321,19 +322,25 @@ public final class EdgarIncomeStatementService {
         }
     }
 
-    private JsonNode fetchJson(String url) throws IOException, InterruptedException {
-        HttpResponse<String> response = client.send(
-                HttpRequest.newBuilder(URI.create(url))
-                        .GET()
-                        .header("Accept", "application/json")
-                        .header("User-Agent", userAgent)
-                        .build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IOException("SEC request failed with HTTP " + response.statusCode() + " for " + url);
+    private JsonNode fetchJson(String url) {
+        try {
+            HttpResponse<String> response = client.send(
+                    HttpRequest.newBuilder(URI.create(url))
+                            .GET()
+                            .header("Accept", "application/json")
+                            .header("User-Agent", userAgent)
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IOException("SEC request failed with HTTP " + response.statusCode() + " for " + url);
+            }
+            return objectMapper.readTree(response.body());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException("Operation interrupted", e);
         }
-        return objectMapper.readTree(response.body());
     }
 
     private String findCikForTicker(JsonNode companies, String ticker) {

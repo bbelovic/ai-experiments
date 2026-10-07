@@ -36,11 +36,11 @@ public final class DividendWatchCrawlerApp {
         if (args.length > 0 && !args[0].isBlank()) {
             return args[0].trim();
         }
-        String fromProperty = System.getProperty("dividendwatch.stock.ticker");
+        String fromProperty = System.getProperty("stock.ticker");
         if (fromProperty != null && !fromProperty.isBlank()) {
             return fromProperty.trim();
         }
         throw new IllegalArgumentException(
-                "Missing stock ticker. Pass it as the first argument (e.g. AAPL) or set -Ddividendwatch.stock.ticker=AAPL.");
+                "Missing stock ticker. Pass it as the first argument (e.g. AAPL) or set -Dstock.ticker=AAPL.");
     }
 }

@@ -42,7 +42,7 @@ public final class EdgarBalanceSheetService {
         this.metricDefinitions = metricDefinitions;
     }
 
-    public FinancialStatements annualBalanceSheetStatement(String ticker) throws IOException, InterruptedException {
+    public FinancialStatements annualBalanceSheetStatement(String ticker) {
         JsonNode companies = fetchJson("https://www.sec.gov/files/company_tickers.json");
         String cik = findCikForTicker(companies, ticker);
         String paddedCik = String.format("%010d", Long.parseLong(cik));
@@ -147,9 +147,8 @@ public final class EdgarBalanceSheetService {
             AnnualFiling latest10K
     ) {
         return switch (definition.getKey()) {
-            case "cash_and_short_term_investments" -> sum(definition, latest10K, metricsByKey,
-                    "cash_and_cash_equivalents",
-                    "short_term_investments");
+            case "cash_and_short_term_investments" -> sum(definition, latest10K, metricsByKey
+            );
             case "other_current_assets" -> residual(definition, latest10K, metricsByKey,
                     "current_assets",
                     "cash_and_cash_equivalents",
@@ -193,16 +192,14 @@ public final class EdgarBalanceSheetService {
     private Optional<BalanceSheetMetric> sum(
             BalanceSheetMetricEnumType definition,
             AnnualFiling latest10K,
-            Map<String, BalanceSheetMetric> metricsByKey,
-            String firstKey,
-            String secondKey
+            Map<String, BalanceSheetMetric> metricsByKey
     ) {
-        BalanceSheetMetric first = metricsByKey.get(firstKey);
-        BalanceSheetMetric second = metricsByKey.get(secondKey);
+        BalanceSheetMetric first = metricsByKey.get("cash_and_cash_equivalents");
+        BalanceSheetMetric second = metricsByKey.get("short_term_investments");
         if (first == null || second == null) {
             return Optional.empty();
         }
-        return Optional.of(derived(definition, latest10K, first.value().add(second.value()), firstKey + "+" + secondKey));
+        return Optional.of(derived(definition, latest10K, first.value().add(second.value()), "cash_and_cash_equivalents" + "+" + "short_term_investments"));
     }
 
     private Optional<BalanceSheetMetric> subtract(
@@ -344,10 +341,10 @@ public final class EdgarBalanceSheetService {
         }
     }
 
-    private JsonNode fetchJson(String url) throws IOException, InterruptedException {
-
+    private JsonNode fetchJson(String url) {
+        HttpResponse<String> response;
         try {
-            HttpResponse<String> response = client.send(
+             response = client.send(
                     HttpRequest.newBuilder(URI.create(url))
                             .GET()
                             .header("Accept", "application/json")
@@ -355,13 +352,15 @@ public final class EdgarBalanceSheetService {
                             .build(),
                     HttpResponse.BodyHandlers.ofString()
             );
-        } catch (IOException | InterruptedException e) {
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("SEC request failed with HTTP " + response.statusCode() + " for " + url);
+            }
+            return objectMapper.readTree(response.body());
+        } catch (IOException e) {
             throw new UncheckedIOException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException("Operation interrupted", e);
         }
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IllegalStateException("SEC request failed with HTTP " + response.statusCode() + " for " + url);
-        }
-        return objectMapper.readTree(response.body());
     }
 
     private String findCikForTicker(JsonNode companies, String ticker) {

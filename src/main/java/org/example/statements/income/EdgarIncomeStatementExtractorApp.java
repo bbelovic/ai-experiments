@@ -8,8 +8,8 @@ public final class EdgarIncomeStatementExtractorApp {
     }
 
     static void main(String[] args) throws Exception {
-        String ticker = args.length > 0 ? args[0].trim() : env("EDGAR_STOCK_TICKER", "AAPL");
-        String userAgent = env("EDGAR_USER_AGENT", "ai-experiments test@example.com");
+        String ticker = args.length > 0 ? args[0].trim() : property("stock.ticker", "AAPL");
+        String userAgent = property("edgar.user.agent", "ai-experiments test@example.com");
 
         FinancialStatements statements = new EdgarIncomeStatementService(userAgent, 4)
                 .annualIncomeStatement(ticker);
@@ -17,8 +17,8 @@ public final class EdgarIncomeStatementExtractorApp {
         System.out.println(new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(statements));
     }
 
-    private static String env(String name, String fallback) {
-        String value = System.getenv(name);
+    private static String property(String name, String fallback) {
+        String value = System.getProperty(name);
         return value == null || value.isBlank() ? fallback : value;
     }
 }

@@ -11,8 +11,8 @@ public final class EdgarBalanceSheetExtractorApp {
     }
 
     static void main(String[] args) throws Exception {
-        String ticker = args.length > 0 ? args[0].trim() : env("EDGAR_STOCK_TICKER", "AAPL");
-        String userAgent = env("EDGAR_USER_AGENT", "ai-experiments test@example.com");
+        String ticker = args.length > 0 ? args[0].trim() : property("stock.ticker", "AAPL");
+        String userAgent = property("edgar.user.agent", "ai-experiments test@example.com");
 
         FinancialStatements statements = new EdgarBalanceSheetService(userAgent, 4)
                 .annualBalanceSheetStatement(ticker);
@@ -24,6 +24,11 @@ public final class EdgarBalanceSheetExtractorApp {
             var out = Files.newOutputStream(Path.of(outputFilePath));
             new ObjectMapper().writerWithDefaultPrettyPrinter().writeValue(out, statements);
         }
+    }
+
+    private static String property(String name, String fallback) {
+        String value = System.getProperty(name);
+        return value == null || value.isBlank() ? fallback : value;
     }
 
     private static String env(String name, String fallback) {

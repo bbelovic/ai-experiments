@@ -67,7 +67,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>org.example.loader.dividendwatch.DividendWatchCrawlerApp</mainClass>
+                            <mainClass>org.example.edgar.main.Main</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
