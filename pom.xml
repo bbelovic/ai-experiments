@@ -12,7 +12,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.jupiter.version>5.13.3</junit.jupiter.version>
         <assertj.version>3.27.7</assertj.version>
-        <jackson.version>2.19.2</jackson.version>
+        <jackson.version>2.22.3</jackson.version>
         <playwright.version>1.61.0</playwright.version>
         <slf4j.version>2.0.18</slf4j.version>
         <logback.version>1.5.35</logback.version>
