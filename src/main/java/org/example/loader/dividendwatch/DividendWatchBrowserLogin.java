@@ -524,6 +524,9 @@ public final class DividendWatchBrowserLogin {
     }
 
     private boolean appearsUnauthenticatedOrGated(Page page) {
+        if (hasVisible(page, config.passwordSelector())) {
+            return true;
+        }
         return Boolean.TRUE.equals(page.locator("body").evaluate("""
                 () => {
                     const visible = element => {
@@ -686,23 +689,28 @@ public final class DividendWatchBrowserLogin {
             page.waitForFunction("""
                     ([usernameSelector, passwordSelector]) => {
                         const visible = selector => {
-                            const element = document.querySelector(selector);
-                            if (!element) {
-                                return false;
-                            }
-                            const style = window.getComputedStyle(element);
-                            const rect = element.getBoundingClientRect();
-                            return style.visibility !== 'hidden'
-                                && style.display !== 'none'
-                                && rect.width > 0
-                                && rect.height > 0;
+                            return Array.from(document.querySelectorAll(selector)).some(element => {
+                                const style = window.getComputedStyle(element);
+                                const rect = element.getBoundingClientRect();
+                                return style.visibility !== 'hidden'
+                                    && style.display !== 'none'
+                                    && rect.width > 0
+                                    && rect.height > 0;
+                            });
                         };
-                        return !visible(usernameSelector) || !visible(passwordSelector);
+                        return !visible(usernameSelector) && !visible(passwordSelector);
                     }
                     """, List.of(config.usernameSelector(), config.passwordSelector()),
                     new Page.WaitForFunctionOptions().setTimeout(config.timeout().toMillis()));
         } catch (PlaywrightException exception) {
             debug(page, "login form still visible after submit");
+            throw new IllegalStateException("""
+                    Dividend Watch login did not complete. Stopping before accessing stock data.
+                    Check DIVIDENDWATCH_USERNAME and DIVIDENDWATCH_PASSWORD and confirm login in a browser.
+                    Current URL: %s
+                    Visible controls:
+                    %s
+                    """.formatted(page.url(), visibleControls(page)), exception);
         }
     }
 
@@ -739,7 +747,8 @@ public final class DividendWatchBrowserLogin {
                         const id = element.getAttribute('id');
                         const placeholder = element.getAttribute('placeholder');
                         const aria = element.getAttribute('aria-label');
-                        const text = element.innerText || element.value || '';
+                        const text = tag === 'input' || tag === 'textarea'
+                            ? '[REDACTED]' : element.innerText || '';
                         return [
                             tag,
                             type ? `type=${type}` : '',
