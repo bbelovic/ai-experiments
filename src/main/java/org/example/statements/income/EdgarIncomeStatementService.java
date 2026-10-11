@@ -28,38 +28,6 @@ public final class EdgarIncomeStatementService {
             DecimalFormatSymbols.getInstance(Locale.US)
     );
 
-    private static final List<IncomeStatementMetricDefinition> METRICS = List.of(
-            metric("revenue", "Revenue", "Revenue", "USD",
-                    "RevenueFromContractWithCustomerExcludingAssessedTax",
-                    "Revenues",
-                    "SalesRevenueNet"),
-            metric("cost_of_revenue", "Cost of revenue", "Revenue", "USD",
-                    "CostOfRevenue",
-                    "CostOfGoodsAndServicesSold",
-                    "CostOfGoodsSold"),
-            metric("gross_profit", "Gross profit", "Revenue", "USD", "GrossProfit"),
-            metric("research_and_development", "Research & development", "Operating expenses", "USD",
-                    "ResearchAndDevelopmentExpense"),
-            metric("selling_general_and_administrative", "Selling, general & administrative", "Operating expenses", "USD",
-                    "SellingGeneralAndAdministrativeExpense",
-                    "SellingAndMarketingExpense",
-                    "GeneralAndAdministrativeExpense"),
-            metric("operating_expenses", "Operating expenses", "Operating expenses", "USD", "OperatingExpenses"),
-            metric("operating_income", "Operating income", "Income", "USD", "OperatingIncomeLoss"),
-            metric("non_operating_income_expense", "Non-operating income/expense", "Income", "USD",
-                    "NonoperatingIncomeExpense",
-                    "OtherNonoperatingIncomeExpense"),
-            metric("pretax_income", "Pretax income", "Income", "USD",
-                    "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
-                    "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"),
-            metric("income_tax_expense", "Income tax expense", "Income", "USD", "IncomeTaxExpenseBenefit"),
-            metric("net_income", "Net income", "Income", "USD", "NetIncomeLoss"),
-            metric("basic_eps", "Basic EPS", "Per share", "USD/shares", "EarningsPerShareBasic"),
-            metric("diluted_eps", "Diluted EPS", "Per share", "USD/shares", "EarningsPerShareDiluted"),
-            metric("basic_shares", "Basic shares", "Shares", "shares", "WeightedAverageNumberOfSharesOutstandingBasic"),
-            metric("diluted_shares", "Diluted shares", "Shares", "shares", "WeightedAverageNumberOfDilutedSharesOutstanding")
-    );
-
     private final HttpClient client;
     private final ObjectMapper objectMapper;
     private final String userAgent;
@@ -101,14 +69,14 @@ public final class EdgarIncomeStatementService {
                 .toList();
 
         List<FinancialStatements.StatementRow> rows = new ArrayList<>();
-        for (IncomeStatementMetricDefinition definition : METRICS) {
+        for (IncomeStatementMetricEnumType definition : IncomeStatementMetricEnumType.values()) {
             Map<String, String> values = new LinkedHashMap<>();
             for (int i = 0; i < periods.size(); i++) {
-                IncomeStatementMetric metric = metricMaps.get(i).get(definition.key());
+                IncomeStatementMetric metric = metricMaps.get(i).get(definition.getKey());
                 values.put(periods.get(i), metric == null ? "0" : formatValue(metric.value()));
             }
             rows.add(new FinancialStatements.StatementRow(
-                    definition.label(),
+                    definition.getLabel(),
                     Collections.unmodifiableMap(new LinkedHashMap<>(values))
             ));
         }
@@ -136,7 +104,7 @@ public final class EdgarIncomeStatementService {
         List<IncomeStatementMetric> metrics = new ArrayList<>();
         Map<String, IncomeStatementMetric> metricsByKey = new LinkedHashMap<>();
 
-        for (IncomeStatementMetricDefinition definition : METRICS) {
+        for (IncomeStatementMetricEnumType definition : IncomeStatementMetricEnumType.values()) {
             Optional<IncomeStatementMetric> metric = findMetric(definition, companyFacts, filing)
                     .or(() -> deriveMetric(definition, metricsByKey, filing));
             metric.ifPresent(found -> {
@@ -156,21 +124,21 @@ public final class EdgarIncomeStatementService {
     }
 
     private Optional<IncomeStatementMetric> findMetric(
-            IncomeStatementMetricDefinition definition,
+            IncomeStatementMetricEnumType definition,
             JsonNode companyFacts,
             AnnualFiling filing
     ) {
-        for (String concept : definition.usGaapConcepts()) {
-            Optional<JsonNode> fact = matchingFact(companyFacts, concept, definition.unit(), filing);
+        for (String concept : definition.getUsGAAPConcepts()) {
+            Optional<JsonNode> fact = matchingFact(companyFacts, concept, definition.getUnit(), filing);
             if (fact.isPresent()) {
                 JsonNode node = fact.get();
                 return Optional.of(new IncomeStatementMetric(
-                        definition.key(),
-                        definition.label(),
-                        definition.section(),
+                        definition.getKey(),
+                        definition.getLabel(),
+                        definition.getSection(),
                         concept,
                         node.path("val").decimalValue(),
-                        definition.unit(),
+                        definition.getUnit(),
                         node.path("end").asText(filing.reportDate()),
                         node.path("filed").asText(filing.filingDate()),
                         node.path("accn").asText(filing.accessionNumber())
@@ -181,11 +149,11 @@ public final class EdgarIncomeStatementService {
     }
 
     private Optional<IncomeStatementMetric> deriveMetric(
-            IncomeStatementMetricDefinition definition,
+            IncomeStatementMetricEnumType definition,
             Map<String, IncomeStatementMetric> metricsByKey,
             AnnualFiling filing
     ) {
-        return switch (definition.key()) {
+        return switch (definition.getKey()) {
             case "gross_profit" -> subtract(definition, filing, metricsByKey, "revenue", "cost_of_revenue");
             case "operating_expenses" -> sum(definition, filing, metricsByKey,
                     "research_and_development",
@@ -199,7 +167,7 @@ public final class EdgarIncomeStatementService {
     }
 
     private Optional<IncomeStatementMetric> sum(
-            IncomeStatementMetricDefinition definition,
+            IncomeStatementMetricEnumType definition,
             AnnualFiling filing,
             Map<String, IncomeStatementMetric> metricsByKey,
             String firstKey,
@@ -214,7 +182,7 @@ public final class EdgarIncomeStatementService {
     }
 
     private Optional<IncomeStatementMetric> subtract(
-            IncomeStatementMetricDefinition definition,
+            IncomeStatementMetricEnumType definition,
             AnnualFiling filing,
             Map<String, IncomeStatementMetric> metricsByKey,
             String minuendKey,
@@ -234,18 +202,18 @@ public final class EdgarIncomeStatementService {
     }
 
     private IncomeStatementMetric derived(
-            IncomeStatementMetricDefinition definition,
+            IncomeStatementMetricEnumType definition,
             AnnualFiling filing,
             BigDecimal value,
             String formula
     ) {
         return new IncomeStatementMetric(
-                definition.key(),
-                definition.label(),
-                definition.section(),
+                definition.getKey(),
+                definition.getLabel(),
+                definition.getSection(),
                 "derived:" + formula,
                 value,
-                definition.unit(),
+                definition.getUnit(),
                 filing.reportDate(),
                 filing.filingDate(),
                 filing.accessionNumber()
@@ -351,16 +319,6 @@ public final class EdgarIncomeStatementService {
             }
         }
         throw new IllegalArgumentException("Unknown ticker " + ticker);
-    }
-
-    private static IncomeStatementMetricDefinition metric(
-            String key,
-            String label,
-            String section,
-            String unit,
-            String... concepts
-    ) {
-        return new IncomeStatementMetricDefinition(key, label, section, unit, List.of(concepts));
     }
 
     private record AnnualFiling(

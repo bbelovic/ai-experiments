@@ -10,6 +10,7 @@ import java.net.http.HttpClient;
 import java.text.DecimalFormat;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.example.statements.income.IncomeStatementMetricEnumType.*;
 
 class EdgarIncomeStatementServiceTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -44,23 +45,27 @@ class EdgarIncomeStatementServiceTest {
         assertThat(statements.statements().getFirst().name()).isEqualTo("Income Statement");
         assertThat(statements.statements().getFirst().periods()).containsExactly("2025", "2024", "2023", "2022");
 
-        assertThat(row(statements, "Revenue").values())
-                .containsEntry("2025", valueFormat.format(416161000000L));
-        assertThat(row(statements, "Gross profit").values())
+        assertThat(row(statements, REVENUE).values())
+                .containsEntry("2025", valueFormat.format(416161000000L))
+                .containsEntry("2022", valueFormat.format(394328000000L));
+        assertThat(row(statements, COST_OF_REVENUE).values())
+                .containsEntry("2025", valueFormat.format(220960000000L))
+                .containsEntry("2024", valueFormat.format(210352000000L));
+        assertThat(row(statements, GROSS_PROFIT).values())
                 .containsEntry("2025", valueFormat.format(195201000000L));
-        assertThat(row(statements, "Operating income").values())
+        assertThat(row(statements, OPERATING_INCOME).values())
                 .containsEntry("2025", valueFormat.format(133050000000L));
-        assertThat(row(statements, "Net income").values())
+        assertThat(row(statements, NET_INCOME).values())
                 .containsEntry("2025", valueFormat.format(112010000000L));
-        assertThat(row(statements, "Diluted EPS").values())
+        assertThat(row(statements, DILUTED_EPS).values())
                 .containsEntry("2025", valueFormat.format(7.46));
-        assertThat(row(statements, "Diluted shares").values())
+        assertThat(row(statements, DILUTED_SHARES).values())
                 .containsEntry("2025", valueFormat.format(15004697000L));
     }
 
-    private FinancialStatements.StatementRow row(FinancialStatements statements, String metric) {
+    private FinancialStatements.StatementRow row(FinancialStatements statements, IncomeStatementMetricEnumType metric) {
         return statements.statements().getFirst().rows().stream()
-                .filter(row -> row.metric().equals(metric))
+                .filter(row -> row.metric().equals(metric.getLabel()))
                 .findFirst()
                 .orElseThrow();
     }

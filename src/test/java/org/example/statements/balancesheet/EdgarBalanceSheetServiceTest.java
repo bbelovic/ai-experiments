@@ -54,6 +54,22 @@ class EdgarBalanceSheetServiceTest {
                 .doesNotHaveDuplicates()
                 .contains("Current deferred revenue", "Non-current deferred revenue");
 
+        Map<BalanceSheetMetricEnumType, Long> expectedMetricsAndValues = expectedBalanceSheetMetrics();
+        expectedMetricsAndValues.forEach((metricDefinition, expectedValue) -> {
+                    assertThat(row(actualStatements, metricDefinition).values())
+                            .as("Expecting metric [%s] to have value [%s]", metricDefinition, format(expectedValue))
+                            .containsEntry("2025", format(expectedValue));
+                });
+
+        List.of("AccruedIncomeTaxesNoncurrent", "AccruedIncomeTaxesCurrent", "AccruedLiabilities")
+                .forEach(notPresent -> {
+                    assertThatThrownBy(() -> row(actualStatements, notPresent))
+                            .isInstanceOf(NoSuchElementException.class)
+                            .hasMessage("No value present");
+                });
+    }
+
+    private static Map<BalanceSheetMetricEnumType, Long> expectedBalanceSheetMetrics() {
         Map<BalanceSheetMetricEnumType, Long> expectedMetricsAndValues = new EnumMap<>(BalanceSheetMetricEnumType.class);
         expectedMetricsAndValues.put(TOTAL_ASSETS, 359241000000L);
         expectedMetricsAndValues.put(CURRENT_ASSETS, 147957000000L);
@@ -90,19 +106,7 @@ class EdgarBalanceSheetServiceTest {
         expectedMetricsAndValues.put(RETAINED_EARNINGS, -14264000000L);
         expectedMetricsAndValues.put(AOCI, -5571000000L);
         expectedMetricsAndValues.put(OTHER_EQUITY, null);
-
-        expectedMetricsAndValues.forEach((metricDefinition, expectedValue) -> {
-                    assertThat(row(actualStatements, metricDefinition).values())
-                            .as("Expecting metric [%s] to have value [%s]", metricDefinition, format(expectedValue))
-                            .containsEntry("2025", format(expectedValue));
-                });
-
-        List.of("AccruedIncomeTaxesNoncurrent", "AccruedIncomeTaxesCurrent", "AccruedLiabilities")
-                .forEach(notPresent -> {
-                    assertThatThrownBy(() -> row(actualStatements, notPresent))
-                            .isInstanceOf(NoSuchElementException.class)
-                            .hasMessage("No value present");
-                });
+        return expectedMetricsAndValues;
     }
 
     private static String format(Long valueToFormat) {
