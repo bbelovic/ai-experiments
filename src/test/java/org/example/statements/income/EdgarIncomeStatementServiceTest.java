@@ -67,9 +67,9 @@ class EdgarIncomeStatementServiceTest {
                 .containsEntry("2024", valueFormat.format(26097000000L))
                 .containsEntry("2023", valueFormat.format(24932000000L));
         assertThat(row(statements, OPERATING_EXPENSES).values())
-                .containsEntry("2025", valueFormat.format(34550000000L + 27601000000L))
-                .containsEntry("2024", valueFormat.format(31370000000L + 26097000000L))
-                .containsEntry("2023", valueFormat.format(29915000000L + 24932000000L));
+                .containsEntry("2025", valueFormat.format(62151000000L))
+                .containsEntry("2024", valueFormat.format(57467000000L))
+                .containsEntry("2023", valueFormat.format(54847000000L));
         assertThat(row(statements, OPERATING_INCOME).values())
                 .containsEntry("2025", valueFormat.format(133050000000L))
                 .containsEntry("2024", valueFormat.format(123216000000L))
