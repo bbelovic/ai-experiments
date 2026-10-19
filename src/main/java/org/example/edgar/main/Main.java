@@ -5,6 +5,7 @@ import org.example.loader.dividendwatch.DividendWatchBrowserLogin;
 import org.example.loader.dividendwatch.DividendWatchDataLoader;
 import org.example.loader.edgar.EdgarDataLoader;
 import org.example.statements.balancesheet.EdgarBalanceSheetService;
+import org.example.statements.cashflow.EdgarCashFlowStatementService;
 import org.example.statements.income.EdgarIncomeStatementService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +25,8 @@ public class Main {
         } else if ("EDGAR".equals(mode)) {
             String userAgent = property("edgar.user.agent", "ai-experiments test@example.com");
             var loader = new EdgarDataLoader(ticker, new EdgarBalanceSheetService(userAgent, 4),
-                    new EdgarIncomeStatementService(userAgent, 4));
+                    new EdgarIncomeStatementService(userAgent, 4),
+                    new EdgarCashFlowStatementService(userAgent, 4));
             var statements = loader.load();
             LOGGER.info(new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(statements));
         } else {

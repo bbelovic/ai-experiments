@@ -158,8 +158,8 @@ public final class EdgarCashFlowStatementService {
             AnnualFiling filing
     ) {
         return switch (definition) {
-            case FREE_CASH_FLOW -> subtract(definition, filing, metricsByKey,
-                    "operating_cash_flow", "capital_expenditures");
+            case FREE_CASH_FLOW -> subtract(definition, filing, metricsByKey
+            );
             default -> Optional.empty();
         };
     }
@@ -167,12 +167,10 @@ public final class EdgarCashFlowStatementService {
     private Optional<CashFlowStatementMetric> subtract(
             CashFlowStatementMetricEnumType definition,
             AnnualFiling filing,
-            Map<String, CashFlowStatementMetric> metricsByKey,
-            String minuendKey,
-            String subtrahendKey
+            Map<String, CashFlowStatementMetric> metricsByKey
     ) {
-        CashFlowStatementMetric minuend = metricsByKey.get(minuendKey);
-        CashFlowStatementMetric subtrahend = metricsByKey.get(subtrahendKey);
+        CashFlowStatementMetric minuend = metricsByKey.get("operating_cash_flow");
+        CashFlowStatementMetric subtrahend = metricsByKey.get("capital_expenditures");
         if (minuend == null || subtrahend == null
                 || !minuend.startDate().equals(subtrahend.startDate())
                 || !minuend.reportDate().equals(subtrahend.reportDate())) {
@@ -182,7 +180,6 @@ public final class EdgarCashFlowStatementService {
                 definition,
                 filing,
                 minuend.value().subtract(subtrahend.value()),
-                minuendKey + "-" + subtrahendKey,
                 minuend.startDate()
         ));
     }
@@ -191,14 +188,13 @@ public final class EdgarCashFlowStatementService {
             CashFlowStatementMetricEnumType definition,
             AnnualFiling filing,
             BigDecimal value,
-            String formula,
             String startDate
     ) {
         return new CashFlowStatementMetric(
                 definition.getKey(),
                 definition.getLabel(),
                 definition.getSection(),
-                "derived:" + formula,
+                "derived:" + "operating_cash_flow-capital_expenditures",
                 value,
                 definition.getUnit(),
                 startDate,
