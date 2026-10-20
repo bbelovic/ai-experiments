@@ -157,11 +157,11 @@ public final class EdgarCashFlowStatementService {
             Map<String, CashFlowStatementMetric> metricsByKey,
             AnnualFiling filing
     ) {
-        return switch (definition) {
-            case FREE_CASH_FLOW -> subtract(definition, filing, metricsByKey
-            );
-            default -> Optional.empty();
-        };
+        if (definition == CashFlowStatementMetricEnumType.FREE_CASH_FLOW) {
+            return subtract(definition, filing, metricsByKey);
+        } else {
+            return Optional.empty();
+        }
     }
 
     private Optional<CashFlowStatementMetric> subtract(

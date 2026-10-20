@@ -34,7 +34,8 @@ public class EdgarDataLoader implements FinancialDataLoader {
                 incomeStatement.source(),
                 Stream.of(incomeStatement.sourceUrl(), balanceSheetStatement.sourceUrl(), cashFlowStatement.sourceUrl())
                         .flatMap(Collection::stream).distinct().toList(),
-                Stream.concat(incomeStatement.statements().stream(), balanceSheetStatement.statements().stream())
+                Stream.of(incomeStatement.statements(), balanceSheetStatement.statements(), cashFlowStatement.statements())
+                        .flatMap(Collection::stream)
                         .toList());
     }
 }
