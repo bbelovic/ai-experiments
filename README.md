@@ -75,3 +75,37 @@ calculated value is also `null`. An absent fact is never assumed to be zero.
 Consumers should display `null` as **N/A** or **Unavailable** and preserve it
 when processing data. Ratios or totals requiring a missing value should remain
 unavailable rather than substituting zero.
+
+## EDGAR cash-flow statements
+
+`org.example.statements.cashflow.EdgarCashFlowStatementService` fetches annual
+cash-flow data using the same ticker lookup, submissions, and
+[company-facts API](https://www.sec.gov/search-filings/edgar-application-programming-interfaces)
+as the other EDGAR services. It returns the shared `FinancialStatements` model:
+
+```java
+FinancialStatements statements = new EdgarCashFlowStatementService(
+        "MyApp your.email@example.com", 4).annualCashFlowStatement("AAPL");
+```
+
+The metric enum defines 14 rows: net income, depreciation/depletion/amortization,
+share-based compensation, deferred income tax, operating cash flow, capital
+expenditures, investing cash flow, dividends, common-stock repurchases,
+long-term debt proceeds and repayments, financing cash flow, net change in cash
+including restricted cash, and free cash flow. These are selected standard
+US-GAAP concepts, not a reconstruction of every line in a company's filing.
+Continuing-operations-only totals are not substituted for overall activity totals.
+
+The service selects recent 10-K filings and matches each fact's accession,
+report end date, annual filing period (`FY`), and USD unit. Its annual-duration
+filter accepts 350–380 days, including 52- and 53-week fiscal years, and excludes
+quarterly, year-to-date, and short transition periods. Missing values remain
+`null`, while reported zeros remain `"0"`.
+
+Values retain their reported signs: payment concepts such as capital expenditures
+and dividends normally contain positive outflow amounts, while net cash-flow
+totals may be positive or negative. Free cash flow is defined here as operating
+cash flow minus payments to acquire property, plant, and equipment. Both inputs
+must be available and have identical start and end dates; otherwise it is `null`.
+Net change in cash includes restricted cash and exchange-rate effects and is read
+directly from its reported concept, not derived by adding activity totals.
