@@ -73,7 +73,7 @@ public final class EdgarIncomeStatementService {
             Map<String, String> values = new LinkedHashMap<>();
             for (int i = 0; i < periods.size(); i++) {
                 IncomeStatementMetric metric = metricMaps.get(i).get(definition.getKey());
-                values.put(periods.get(i), metric == null ? "0" : formatValue(metric.value()));
+                values.put(periods.get(i), metric == null ? null : formatValue(metric.value()));
             }
             rows.add(new FinancialStatements.StatementRow(
                     definition.getLabel(),
