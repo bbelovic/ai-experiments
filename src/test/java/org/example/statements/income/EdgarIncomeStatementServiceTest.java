@@ -2,6 +2,7 @@ package org.example.statements.income;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.example.statements.FinancialStatements;
 import org.junit.jupiter.api.Test;
 
@@ -127,6 +128,52 @@ class EdgarIncomeStatementServiceTest {
                 .filter(row -> row.metric().equals(metric.getLabel()))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    @Test
+    void missingCostOfRevenueAndUnderivableGrossProfitAreSerializedAsNull() throws Exception {
+        JsonNode companyFacts = readFixtureJson("AAPL-company-facts.json");
+        ObjectNode concepts = (ObjectNode) companyFacts.path("facts").path("us-gaap");
+        concepts.remove(COST_OF_REVENUE.getUsGAAPConcepts());
+        concepts.remove(GROSS_PROFIT.getUsGAAPConcepts());
+
+        FinancialStatements statements = service.extractAnnualIncomeStatement(
+                "aapl", readFixtureJson("AAPL-submissions.json"), companyFacts);
+
+        for (IncomeStatementMetricEnumType metric : new IncomeStatementMetricEnumType[]{COST_OF_REVENUE, GROSS_PROFIT}) {
+            FinancialStatements.StatementRow statementRow = row(statements, metric);
+            JsonNode serializedValues = objectMapper.readTree(objectMapper.writeValueAsString(statementRow))
+                    .path("values");
+            for (String period : statements.statements().getFirst().periods()) {
+                assertThat(statementRow.values()).containsEntry(period, null);
+                assertThat(serializedValues.has(period)).isTrue();
+                assertThat(serializedValues.path(period).isNull()).isTrue();
+            }
+        }
+        assertThat(row(statements, REVENUE).values()).containsEntry("2025", "416,161,000,000");
+    }
+
+    @Test
+    void reportedAndCalculatedZerosRemainZero() throws Exception {
+        JsonNode companyFacts = readFixtureJson("AAPL-company-facts.json");
+        ObjectNode concepts = (ObjectNode) companyFacts.path("facts").path("us-gaap");
+        concepts.remove(GROSS_PROFIT.getUsGAAPConcepts());
+        for (IncomeStatementMetricEnumType metric : new IncomeStatementMetricEnumType[]{REVENUE, COST_OF_REVENUE}) {
+            for (String concept : metric.getUsGAAPConcepts()) {
+                for (JsonNode fact : concepts.path(concept).path("units").path("USD")) {
+                    ((ObjectNode) fact).put("val", 0);
+                }
+            }
+        }
+
+        FinancialStatements statements = service.extractAnnualIncomeStatement(
+                "aapl", readFixtureJson("AAPL-submissions.json"), companyFacts);
+
+        for (String period : statements.statements().getFirst().periods()) {
+            assertThat(row(statements, REVENUE).values()).containsEntry(period, "0");
+            assertThat(row(statements, COST_OF_REVENUE).values()).containsEntry(period, "0");
+            assertThat(row(statements, GROSS_PROFIT).values()).containsEntry(period, "0");
+        }
     }
 
     private JsonNode readFixtureJson(String name) throws Exception {
