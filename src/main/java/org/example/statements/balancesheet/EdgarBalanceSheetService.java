@@ -15,6 +15,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 public final class EdgarBalanceSheetService {
@@ -279,18 +281,14 @@ public final class EdgarBalanceSheetService {
         List<JsonNode> matches = new ArrayList<>();
         for (JsonNode fact : facts) {
             if (latest10K.accessionNumber().equals(fact.path("accn").asText())
+                    && latest10K.reportDate().equals(fact.path("end").asText())
                     && fact.path("val").isNumber()) {
                 matches.add(fact);
             }
         }
 
         return matches.stream()
-                .filter(fact -> latest10K.reportDate().equals(fact.path("end").asText()))
-                .max(Comparator.comparing(fact -> fact.path("filed").asText("")))
-                .or(() -> matches.stream()
-                        .max(Comparator
-                                .comparing((JsonNode fact) -> fact.path("end").asText(""))
-                                .thenComparing(fact -> fact.path("filed").asText(""))));
+                .max(Comparator.comparing(fact -> fact.path("filed").asText("")));
     }
 
     private List<AnnualFiling> latest10Ks(JsonNode submissions, int limit) {
@@ -315,7 +313,7 @@ public final class EdgarBalanceSheetService {
                     forms.get(i).asText(),
                     accessionNumbers.get(i).asText(),
                     filingDates.get(i).asText(),
-                    reportDates.get(i).asText(),
+                    reportDates.path(i).asText(""),
                     fiscalYear,
                     primaryDocuments.path(i).asText("")
             );
@@ -332,7 +330,23 @@ public final class EdgarBalanceSheetService {
         if (filings.isEmpty()) {
             throw new IllegalArgumentException("No recent 10-K found in submissions data");
         }
+        for (AnnualFiling filing : filings) {
+            validateReportDate(filing);
+        }
         return filings;
+    }
+
+    private void validateReportDate(AnnualFiling filing) {
+        try {
+            if (filing.reportDate().matches("\\d{4}-\\d{2}-\\d{2}")) {
+                LocalDate.parse(filing.reportDate());
+                return;
+            }
+        } catch (DateTimeParseException ignored) {
+            // Invalid calendar dates must not become eligible through string equality.
+        }
+        throw new IllegalArgumentException("Missing or invalid reportDate for 10-K accession "
+                + filing.accessionNumber() + ": '" + filing.reportDate() + "'");
     }
 
     private String formatValue(BigDecimal value) {
