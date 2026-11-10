@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>03 - Retrieve before answering</title>
+<style>body{font:18px/1.65 system-ui,sans-serif;color:#203047;background:#f4f6f9;margin:0}main{max-width:820px;margin:36px auto;padding:36px;background:white;border-radius:16px}h1,h2{line-height:1.2}a{color:#1555a0}pre{white-space:pre-wrap;background:#edf3fa;padding:18px;border-radius:8px;font-size:15px}fieldset{border:1px solid #ccd8e5;margin:20px 0;padding:16px}label{display:block;margin:10px 0;cursor:pointer}button{font:inherit;padding:8px 16px;background:#174f87;color:white;border:0;border-radius:6px;cursor:pointer}.feedback{font-weight:600}textarea{box-sizing:border-box;width:100%;min-height:95px;font:inherit}small{color:#42536a}details{padding:12px;background:#edf8f5;margin:14px 0}blockquote{margin:16px 0;padding:16px;border-left:4px solid #22766c;background:#edf8f5}@media(max-width:650px){main{margin:0;padding:20px}}@media print{body{background:white}main{margin:0;padding:0}button{display:none}fieldset{break-inside:avoid}}</style></head>
+<body><main><small>SESSION 03 / 15-20 MINUTES / NO API KEY</small><h1>Retrieve before answering</h1><p><a href="0002-where-mcp-fits.html">Previous lesson</a> · <a href="../reference/session-roadmap.html">Roadmap</a> · <a href="../RESOURCES.md">Sources</a></p>
+<p><strong>Your win:</strong> locate a failure in either evidence retrieval or answer generation.</p>
+<h2>Recall first</h2><p>Can an MCP server operate without a model? Does exposing a search tool through MCP automatically mean an answer is supported by evidence?</p><textarea aria-label="Recall of MCP boundaries" placeholder="Your explanation; not saved"></textarea>
+<h2>The evidence path</h2><p>In retrieval augmented generation (RAG), an application retrieves relevant material and supplies it as context for a model's answer. Spring AI provides components for this pattern, including <a href="https://docs.spring.io/spring-ai/reference/api/retrieval-augmented-generation.html">retrieval advisors</a>. Retrieving a passage does not guarantee the generated answer accurately reflects it.</p>
+<pre>Research documents -> passages + source metadata
+                               |
+                          searchable corpus
+
+User question -> retrieve relevant chunks
+              -> question + selected evidence sent to model
+              -> answer with source references
+              -> check whether evidence supports the claims</pre>
+<p>Here, <strong>grounding</strong> means supporting answer claims with supplied evidence. A reference is useful only when the cited passage supports the claim. Treat retrieved document text as evidence to examine, not as instructions with authority over the application.</p>
+<p>For our project, keep two data paths distinct. The EDGAR and Dividend Watch loaders return structured financial statements, which a tool can supply directly. Narrative questions need a document source: we will start with a small, explicit corpus of research passages. A financial table alone cannot establish why revenue changed.</p>
+<p>This lesson is self-contained and does not require the repository's filing parser or chunk classes. A <strong>chunk</strong> here simply means a piece of document text chosen as a retrieval unit, with metadata identifying its source. We can inspect retrieval manually before adding embeddings or a vector store.</p>
+<h2>A deliberately small example</h2><p>The following is synthetic practice data, not a statement about a real company:</p><blockquote>Document A, Risk Factors, 2024: "We depend on a small number of suppliers. An interruption at a supplier could delay production."</blockquote><p>Question: "Did supplier interruptions reduce revenue in 2024?" Distinguish a described risk from evidence that the event actually occurred.</p>
+<h2>Try it</h2><form id="quiz"><fieldset><legend>1. Which answer is supported by Document A?</legend><label><input type="radio" name="q1" value="event"> Supplier delays reduced revenue in 2024.</label><label><input type="radio" name="q1" value="none"> Supplier delays had no effect in 2024.</label><label><input type="radio" name="q1" value="unknown"> The passage does not establish an actual impact.</label><p id="f1" class="feedback" role="status"></p></fieldset>
+<fieldset><legend>2. We ask about supplier risk, retrieve only an unrelated tax paragraph, and get a fluent supplier answer. What should we inspect first?</legend><label><input type="radio" name="q2" value="retrieval"> Retrieved evidence selection</label><label><input type="radio" name="q2" value="format"> Answer formatting rules</label><label><input type="radio" name="q2" value="transport"> MCP message transport</label><p id="f2" class="feedback" role="status"></p></fieldset><button type="submit">Check answers</button></form>
+<h2>Evidence drill: choose a passage</h2><p>Use these two synthetic records. They are teaching examples, not actual company disclosures or output from either loader.</p>
+<pre>id: DEMO-RISK-2024
+company: DEMO
+period: 2024
+source: demo-annual-report-2024
+section: Risk Factors
+text: We depend on a small number of suppliers. An interruption
+      at a supplier could delay production.
+
+id: DEMO-RESULTS-2024
+company: DEMO
+period: 2024
+source: demo-annual-report-2024
+section: Management Discussion
+text: Revenue increased during 2024. Management attributes the
+      increase to higher sales volumes.</pre>
+<ol><li>For "What supplier risk did DEMO disclose in 2024?", choose the record you would retrieve and write a one-sentence answer citing its ID.</li><li>Identify the metadata that lets a reader locate the source document and section. Distinguish that from company and period metadata used to filter retrieval.</li><li>Write a nearby question that neither passage can answer. Explain what additional evidence you would need.</li></ol>
+<details><summary>Check your evidence selection after attempting</summary><p>The supplier-risk question is supported by DEMO-RISK-2024. Its source and section identify where the passage belongs; company and period help narrow the search. DEMO-RESULTS-2024 supports management's stated explanation of revenue growth, but neither passage establishes the amount of revenue lost to supplier interruptions.</p></details>
+<h2>Recall without looking above</h2><p>Explain retrieval versus generation. If the right passage was retrieved but the model invented a claim, which part failed? How is RAG different from MCP?</p><details><summary>Self-check after attempting</summary><p>Retrieval selects evidence; generation constructs an answer using context. Relevant evidence can still be misrepresented during generation. RAG is an application pattern; MCP is a communication protocol. A retrieval capability may be exposed through MCP, and RAG may also be implemented without MCP.</p></details>
+<p><strong>Read next:</strong> the opening and QuestionAnswerAdvisor sections of <a href="https://docs.spring.io/spring-ai/reference/api/retrieval-augmented-generation.html">Spring AI: RAG</a>. Focus on where evidence enters the request, not configuration.</p><p>Ask Codex follow-up questions about anything unclear. Answers are not saved or transmitted. Send your recall answers for feedback, then continue to <a href="0004-first-spring-ai-request.html">Lesson 4: Your first Spring AI request</a>.</p><noscript><p>Self-check answers: the passage does not establish actual impact; inspect retrieved evidence selection.</p></noscript>
+<script>document.getElementById('quiz').addEventListener('submit',function(e){e.preventDefault();const d=new FormData(this);[['q1','unknown','f1','Correct: a potential risk is not evidence of a realized event.','Neither an actual loss nor the absence of a loss follows from this passage.'],['q2','retrieval','f2','Correct: inspect retrieval first; unsupported generation also needs evaluation.','The supplied evidence is already irrelevant. Diagnose retrieval before adjusting answer style.']].forEach(([q,a,id,y,n])=>{document.getElementById(id).textContent=!d.get(q)?'Select an answer first.':d.get(q)===a?y:n;});});</script>
+</main></body></html>

@@ -1,14 +1,32 @@
 # Running the application
 
-Requires Java 25 and Maven. Build the JAR and its runtime dependencies:
+Requires Java 25 and Maven. The root POM builds two modules:
+
+- `ai-tooling`: existing financial loaders, tool wrapper, filing utilities, tests,
+  and fixtures. Its runnable JAR and runtime dependencies are under `ai-tooling/target/`.
+- `chat-client`: Spring Boot module for the guided Spring AI lessons. Maven setup
+  is ready; add the Spring AI BOM/provider dependency and application code in Lesson 4.
+
+Build both modules from the repository root:
 
 ```bash
 mvn package
 ```
 
+Build or test a single module and its reactor prerequisites:
+
+```bash
+mvn -pl ai-tooling -am package
+mvn -pl chat-client -am compile
+```
+
+After adding the chat application's entry point, launch it with
+`mvn -pl chat-client spring-boot:run`. The Boot plugin is not yet bound to
+`repackage`, so the scaffold can be packaged before the application exists.
+
 Pass the password directly on the command line, quoting the complete argument
 with single quotes to preserve literal `$`, backslash, and `>` characters:
-
+mvn
 ```bash
 ./run.sh 'dividendwatch.password=YOUR_PASSWORD' mode=DIVIDEND_WATCH stock.ticker=AAPL
 ```
@@ -44,11 +62,13 @@ Arguments in `property=value` format override the environment and defaults:
 
 The launcher converts properties to JVM `-D` options and executes `java -jar`.
 It uses `JAVA_HOME/bin/java` when `JAVA_HOME` is set, otherwise `java` on `PATH`.
-Keep `target/lib/` alongside the JAR; the JAR manifest references those dependencies.
+Keep `ai-tooling/target/lib/` alongside `ai-tooling/target/ai-tooling-1.0-SNAPSHOT.jar`;
+the JAR manifest references those dependencies.
 
-## Missing values in balance-sheet output
+## Missing values in EDGAR statement output
 
-Balance-sheet values are formatted numeric strings or JSON `null`:
+Balance-sheet, income-statement, and cash-flow values are formatted numeric strings
+or JSON `null`:
 
 - `"0"` represents a reported or calculated zero.
 - `null` means the value is unavailable from the selected filing and cannot be

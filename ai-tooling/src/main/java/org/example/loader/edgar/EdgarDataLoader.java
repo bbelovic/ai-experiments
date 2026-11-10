@@ -24,6 +24,7 @@ public class EdgarDataLoader implements FinancialDataLoader {
         this.cashFlowStatementService = cashFlowStatementService;
     }
 
+
     @Override
     public FinancialStatements load() {
         FinancialStatements balanceSheetStatement = balanceSheetService.annualBalanceSheetStatement(ticker);
