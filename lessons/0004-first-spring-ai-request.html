@@ -1,16 +1,16 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>04 - Your first Spring AI request</title>
 <style>body{font:17px/1.65 system-ui,sans-serif;color:#203047;background:#f4f6f9;margin:0}main{max-width:940px;margin:32px auto;padding:36px;background:white;border-radius:16px}h1,h2,h3{line-height:1.2}a{color:#1555a0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#edf3fa;padding:18px;border-radius:8px;font:14px/1.55 ui-monospace,monospace}code{font-size:.92em}fieldset{border:1px solid #ccd8e5;margin:20px 0;padding:16px}label{display:block;margin:10px 0;cursor:pointer}button{font:inherit;padding:8px 16px;background:#174f87;color:white;border:0;border-radius:6px;cursor:pointer}.feedback{font-weight:600}textarea{box-sizing:border-box;width:100%;min-height:90px;font:inherit}small{color:#42536a}details,.note{padding:14px;background:#edf8f5;margin:16px 0}summary{cursor:pointer;font-weight:600}table{border-collapse:collapse;width:100%}td,th{text-align:left;vertical-align:top;padding:10px;border-bottom:1px solid #d5dfea}.flow{padding:16px;border-left:4px solid #22766c;background:#edf8f5}@media(max-width:650px){main{margin:0;padding:20px}pre{font-size:12px}}@media print{body{background:white}main{margin:0;padding:0}button{display:none}pre,fieldset,tr{break-inside:avoid}details{display:block}}</style></head>
-<body><main><small>SESSION 04 / GUIDED JAVA EXERCISE / OPENAI API ACCESS</small>
+<body><main><small>SESSION 04 / GUIDED JAVA EXERCISE / GEMINI OR OPENAI API ACCESS</small>
 <h1>Your first Spring AI request</h1>
 <p><a href="0003-retrieve-before-answering.html">Previous lesson</a> · <a href="../reference/session-roadmap.html">Roadmap</a> · <a href="../MISSION.md">Mission</a> · <a href="../GLOSSARY.md">Glossary</a> · <a href="../RESOURCES.md">Sources</a></p>
 <p><strong>Your win:</strong> implement one model request using a fixed evidence passage, then inspect its answer and usage metadata. You write the code; Codex reviews it. Allow 30-45 minutes, or split setup and the request into two sittings.</p>
-<div class="note">Provider: OpenAI, as you selected. Preparing this lesson made no API calls and changed no application code. The compile checkpoint needs dependency downloads; executing the request needs API access and may incur charges. Use only the synthetic evidence below. Keep your key in your local environment and out of chat.</div>
+<div class="note">Current route: Gemini Developer API, requested after an OpenAI billing obstacle. Google's free tier provides access to certain models within limits; account eligibility and model availability must be checked in AI Studio. Preparing this lesson made no API calls or application changes. Use only the synthetic evidence below. Keep your key in your local environment and out of chat.</div>
 <h2>1. Recall and predict</h2>
 <ol><li>Who validates a tool request and enforces permissions?</li><li>If the right evidence reaches the model but the answer invents a fact, what failed?</li></ol>
 <p>Today we supply the passage ourselves. Predict whether this alone implements retrieval:</p><textarea aria-label="Prediction about manually supplied evidence" placeholder="Explain your prediction; not saved"></textarea>
 <h2>2. The one concept: a model request is a message exchange</h2>
-<div class="flow">Your runner → ChatClient → provider-backed ChatModel → OpenAI API<br>OpenAI response → ChatResponse → answer text + metadata</div>
+<div class="flow">Your runner → ChatClient → provider-backed ChatModel → selected provider API<br>Provider response → ChatResponse → answer text + metadata</div>
 <p>A system message sets the task; a user message carries the question and evidence. These are inputs to generation. <code>ChatClient</code> builds the exchange; <code>ChatResponse</code> retains the result and metadata. See <a href="https://docs.spring.io/spring-ai/reference/api/chatclient.html">Spring AI: ChatClient</a>. We manually choose one passage here. There is no retrieval component, tool invocation, or MCP connection in this exercise.</p>
 <h2>3. Use the chat-client Maven module</h2>
 <p>The repository now has two modules under a shared Maven parent. <code>ai-tooling</code> contains all existing sources and tests; <code>chat-client</code> is the module for this lesson. Codex prepared the Maven structure at your request. Your next task is to add Spring AI dependency management and the provider starter to <a href="../chat-client/pom.xml">chat-client/pom.xml</a>.</p>
@@ -26,6 +26,25 @@ chat-client/
 <p><strong>Version checkpoint, checked 2026-11-10:</strong> use Spring Boot <code>4.1.2</code>, Spring AI BOM <code>2.0.2</code>, and Java <code>25</code>. Spring AI documents support for Boot 4.1.x; Boot's requirements include Java 25. These are pinned lesson versions, not instructions to select a milestone. Sources: <a href="https://docs.spring.io/spring-ai/reference/getting-started.html">AI compatibility and BOM</a>, <a href="https://docs.spring.io/spring-boot/system-requirements.html">Boot requirements</a>.</p>
 <details><summary>Hint: your Spring AI additions</summary><p>In <code>chat-client/pom.xml</code>, add a property <code>spring-ai.version</code> set to <code>2.0.2</code>. At the BOM placeholder, import <code>org.springframework.ai:spring-ai-bom</code> with that version, type <code>pom</code>, and scope <code>import</code>. At the dependency placeholder, add <code>org.springframework.ai:spring-ai-starter-model-openai</code> without a version: the AI BOM manages it. Keep the existing Boot BOM, starter, and plugin.</p></details>
 <h2>4. Configure the provider</h2>
+<h3>Gemini route: use this for your current attempt</h3>
+<p>Keep the Spring AI BOM. Replace the OpenAI starter with <code>org.springframework.ai:spring-ai-starter-model-google-genai</code>, without a dependency version. If you already completed section 3 with OpenAI, this is a replacement, not a second starter. The Maven parent/module structure stays the same.</p>
+<p>Use the <a href="https://aistudio.google.com/api-keys">AI Studio API keys page</a> to obtain a Gemini Developer API key for a free-tier project. Check its tier and an available model in AI Studio; free-tier access is limited to certain models and quotas, and some projects require verification. See <a href="https://ai.google.dev/gemini-api/docs/billing">Google's billing guide</a>. This route uses an API key rather than Vertex AI credentials.</p>
+<p>Replace the OpenAI entries in <code>chat-client/src/main/resources/application.properties</code> with:</p>
+<pre>spring.main.web-application-type=none
+spring.ai.model.chat=google-genai
+spring.ai.model.embedding=none
+spring.ai.google.genai.api-key=${GEMINI_API_KEY}
+spring.ai.google.genai.chat.model=${GEMINI_MODEL}
+spring.ai.retry.max-attempts=1</pre>
+<p>The starter and property names follow <a href="https://docs.spring.io/spring-ai/reference/api/chat/google-genai-chat.html">Spring AI: Google GenAI Chat</a>. Remove the old OpenAI placeholders so startup does not require those environment variables. Keep model-specific options at their defaults for the first attempt.</p>
+<pre># Bash: run locally in the terminal you will use for Maven
+IFS= read -r -s -p 'Gemini API key: ' GEMINI_API_KEY
+printf '\n'
+export GEMINI_API_KEY
+IFS= read -r -p 'Exact Gemini model ID available to your project: ' GEMINI_MODEL
+export GEMINI_MODEL</pre>
+<p>Your existing <code>ChatClient</code> bean and prompt code use Spring AI abstractions, so they can stay. <code>OpenAIRunner</code> is only a class name; renaming it to <code>AiRunner</code> is optional. Continue with section 5. Read usage and finish metadata as before, allowing for provider differences.</p>
+<details><summary>Original OpenAI route: alternative only</summary>
 <p>In the practice project's <code>application.properties</code>, configure:</p>
 <pre>spring.main.web-application-type=none
 spring.ai.model.chat=openai
@@ -44,6 +63,7 @@ export OPENAI_API_KEY
 IFS= read -r -p 'Exact model ID: ' OPENAI_MODEL
 export OPENAI_MODEL</pre>
 <p>The placeholders contain no secret and may be committed. The actual key stays outside source files. A separate IDE launch needs the same environment configured locally. See the <a href="https://developers.openai.com/api/docs/quickstart">OpenAI quickstart</a> for API credentials. Confirm API project access and usage limits before running; this lesson makes no assumptions about account entitlements.</p>
+</details>
 <h2>5. Write the runner</h2>
 <p>Create a standard Boot application in package <code>org.example.learning</code>. Add a <code>CommandLineRunner</code> bean that receives <code>ChatClient.Builder</code>. Build the client, construct the two messages, execute once, and keep the returned <code>ChatResponse</code>.</p>
 <pre>// Imports for the AI-specific part:

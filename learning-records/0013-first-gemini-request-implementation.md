@@ -1,0 +1,5 @@
+# Implemented model requests with evidence and response metadata
+
+On 2026-11-11, the learner implemented the Gemini starter/configuration, a ChatClient factory bean, and an AiRunner making two independent requests with the same synthetic evidence and different questions. Their supplied output identifies gemini-3.1-flash-lite, reports prompt/completion/total usage, supports the supplier-risk answer with the passage ID, and declines to infer a debt amount from insufficient evidence. This demonstrates a working provider-backed message exchange and ChatResponse inspection for these examples; it does not establish general grounding reliability or automated retrieval.
+
+Review follow-ups: logChatResponse accepts a nullable response but immediately dereferences it and also assumes a generation exists; identify EmptyRateLimit as unavailable metadata rather than displaying its zeros as quota; log the finish reason; remove unused getter calls. The final conceptual recall prompts from lesson 4 have not yet been answered. Review left application code unchanged and made no live provider calls.

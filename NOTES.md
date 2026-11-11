@@ -7,6 +7,7 @@
 - AI concept knowledge has not been assessed. Do not assume either mastery or misconceptions.
 - English is the working language; the job posting was in Slovak.
 - The learner selected their existing OpenAI account for session 4. Model ID and API project access have not been verified. Do not request credentials in chat.
+- Current provider direction (2026-11-11): Gemini Developer API after the learner reported an OpenAI API billing obstacle. Lesson 4 now includes Gemini starter/configuration replacement steps; original OpenAI instructions remain a collapsed alternative. Application changes are left to the learner. Free-tier eligibility, quotas, and available model still need checking in AI Studio.
 
 ## Session approach
 - Target 20-35 minutes per session as an adjustable starting assumption, not a user commitment.
@@ -21,7 +22,7 @@
 ## Repository constraints
 - Preserve existing local modifications: README.md, run.sh, the DividendWatchBrowserLogin test, and untracked UNP JSON samples.
 - No production code was changed to prepare the teaching materials.
-- Current baseline: Java 25; Maven parent with ai-tooling and chat-client modules. Existing sources and fixtures are under ai-tooling/src; chat-client has Boot build support but no Spring AI dependency or application yet.
+- Current baseline: Java 25; Maven parent with ai-tooling and chat-client modules. Existing sources and fixtures are under ai-tooling/src; chat-client now has a Gemini starter, ChatClient bean, and AiRunner. Its AI BOM is currently 2.0.0, while the original lesson reference was 2.0.2.
 - Prior verification: 49 tests passed and 3 browser-dependent tests skipped outside the sandbox; Mockito self-attachment failed inside the sandbox.
 - Before implementation sessions, verify compatible supported Spring Boot / Spring AI versions and pin them. Do not copy snippets from a different release line.
 - On 2026-11-10 the learner identified the filing parser/chunk classes as removal candidates. Neither financial-data loader references that subsystem; its callers are parser tests. Do not build teaching exercises or planned retrieval work around retaining those classes. No removal was requested or performed in this teaching revision.
@@ -51,3 +52,9 @@ Read MISSION.md, RESOURCES.md, NOTES.md, GLOSSARY.md, recent learning records, a
 - This supplies context manually; it does not implement retrieval, tools, or MCP. No dependence on legacy filing classes.
 - No provider request was made while preparing the lesson or module setup. Application source contents were preserved during relocation. The root launcher now uses the ai-tooling artifact; module structure and commands are documented in README.md.
 - Module setup verification: mvn -o package succeeded for the parent and both modules outside the sandbox (Mockito requires agent attachment). Existing suite: 49 passed, 3 browser-dependent tests skipped. All 40 moved source/resource files matched their pre-move SHA-256 hashes; teaching HTML local links and launcher shell syntax passed checks.
+
+## Session 4 implementation review (2026-11-11)
+- User supplied successful outputs from gemini-3.1-flash-lite for both synthetic questions; provider access is demonstrated for those runs. No need to request another live call just to repeat this evidence.
+- Two calls occur in one launch, intentionally comparing independent questions. Accept this variation on the lesson's two-launch suggestion; no chat-memory advisor is configured in the reviewed code.
+- Review findings and demonstrated implementation skills are recorded in learning record 0013. Leave fixes to the learner unless they ask for implementation help.
+- Remaining conceptual recall: why retain ChatResponse, which component selects evidence automatically, and what evidence supports an actual debt-impact claim.

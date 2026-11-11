@@ -45,6 +45,15 @@ Sources initially reviewed on 2026-11-04; session 4 setup sources checked on 202
 
 ## Gaps
 
-- Provider selected for session 4: OpenAI, using the learner's existing account. Exact model and API project access remain to be checked locally; credentials must not be shared in chat.
+- Current session 4 route: Gemini Developer API after an OpenAI billing obstacle. Exact model, free-tier eligibility, and API access remain to be checked locally; credentials must not be shared in chat.
 - Add identity-provider and cloud documentation after choosing a deployment target.
 - No model-provider account, API key, paid subscription, or cloud deployment is needed for lessons 0001-0003.
+
+## Gemini route (checked 2026-11-11)
+
+- [Spring AI: Google GenAI Chat](https://docs.spring.io/spring-ai/reference/api/chat/google-genai-chat.html)
+  Starter and Gemini Developer API key/model properties; distinguish this route from Vertex AI authentication.
+- [Gemini API billing](https://ai.google.dev/gemini-api/docs/billing)
+  Free-tier eligibility, limited model access, quotas, and the separate upgrade to paid billing. Check the learner's actual project in AI Studio.
+- [AI Studio API keys](https://aistudio.google.com/api-keys)
+  Local credential setup; never share the key with the tutor or commit it to the repository.
