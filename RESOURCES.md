@@ -6,6 +6,7 @@ Sources initially reviewed on 2026-11-04; session 4 setup sources checked on 202
 
 - [Spring AI: Tool Calling](https://docs.spring.io/spring-ai/reference/api/tools.html)
   Primary source for the model-request/application-execution boundary and Java tool integration. Use for lessons 0001 and later tool implementation.
+  Rechecked for lesson 0005: use the declarative tool and parameter sections. The project currently uses Spring AI 2.0.0; local JAR inspection confirmed the ToolCallbacks.from, ToolCallback.call, ToolDefinition, Tool, and ToolParam APIs used in the exercise. Keep the tooling dependency on that same version until a deliberate upgrade.
 - [MCP: Architecture overview](https://modelcontextprotocol.io/docs/learn/architecture)
   Protocol project's explanation of hosts, clients, servers, and capability exchange. Use for lesson 0002; protocol details may evolve independently of Spring AI releases.
 - [Spring AI: MCP integration](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-overview.html)

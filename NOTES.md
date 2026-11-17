@@ -42,7 +42,7 @@ Verified by source inspection: getFinancialStatements now returns FinancialState
 - [ ] Session 11: Enforce authorization at the server/service boundary when protected data is introduced; do not rely solely on host-side checks.
 
 ## Continuation
-Read MISSION.md, RESOURCES.md, NOTES.md, GLOSSARY.md, recent learning records, and recent lessons. Lessons 1-3 objectives have been demonstrated (see learning record 0009); the next prepared lesson is 0004. Use reference/session-roadmap.html for the planned progression.
+Read MISSION.md, RESOURCES.md, NOTES.md, GLOSSARY.md, recent learning records, and recent lessons. Lessons 1-3 concepts and lesson 4's model-request implementation/response inspection have been demonstrated. The next prepared lesson is 0005; start with checkpoint A. Use reference/session-roadmap.html for the planned progression.
 
 ## Session 4 preparation
 - Prepared lessons/0004-first-spring-ai-request.html with a guided coding exercise, staged hints, an interactive quiz, and explicit acceptance checks.
@@ -57,4 +57,10 @@ Read MISSION.md, RESOURCES.md, NOTES.md, GLOSSARY.md, recent learning records, a
 - User supplied successful outputs from gemini-3.1-flash-lite for both synthetic questions; provider access is demonstrated for those runs. No need to request another live call just to repeat this evidence.
 - Two calls occur in one launch, intentionally comparing independent questions. Accept this variation on the lesson's two-launch suggestion; no chat-memory advisor is configured in the reviewed code.
 - Review findings and demonstrated implementation skills are recorded in learning record 0013. Leave fixes to the learner unless they ask for implementation help.
-- Remaining conceptual recall: why retain ChatResponse, which component selects evidence automatically, and what evidence supports an actual debt-impact claim.
+- The learner explained why to retain ChatResponse (learning record 0014); other recall prompts can be revisited through later practice.
+
+## Session 5 preparation
+- Prepared lessons/0005-a-reliable-financial-tool.html. Checkpoint A: inject a loader factory, normalize/validate arguments, and test deterministic synthetic statement results. Checkpoint B: add Spring AI annotations and verify a local JSON callback. No application changes were made to implement the exercise.
+- Keep the existing two-module arrangement. Work in ai-tooling; no chat-client-to-tooling dependency, model request, or MCP endpoint is needed yet.
+- Match the actual existing Spring AI 2.0.0 line for the tooling model library. ToolCallbacks/ToolCallback/ToolDefinition signatures and annotation locations were checked against cached 2.0.0 classes; current reference documentation was consulted for concepts.
+- Session 5 addresses the wrapper's deferred period bound and factory items. External User-Agent wiring and client-facing error mapping remain for application/server integration. Authorization remains session 11.
