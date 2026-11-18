@@ -25,10 +25,10 @@ public class EdgarDataLoaderTool {
             throw new IllegalArgumentException("Invalid stock ticker: [%s]".formatted(ticker));
         if (annualPeriods < 1 || annualPeriods > 4)
             throw new IllegalArgumentException("Invalid annualPeriods value: [%d]".formatted(annualPeriods));
-
-        EdgarBalanceSheetService balanceSheetService = new EdgarBalanceSheetService(USER_AGENT, annualPeriods);
-        EdgarIncomeStatementService incomeStatementService = new EdgarIncomeStatementService(USER_AGENT, annualPeriods);
-        EdgarCashFlowStatementService cashFlowStatementService = new EdgarCashFlowStatementService(USER_AGENT, annualPeriods);
+//
+//        EdgarBalanceSheetService balanceSheetService = new EdgarBalanceSheetService(USER_AGENT, annualPeriods);
+//        EdgarIncomeStatementService incomeStatementService = new EdgarIncomeStatementService(USER_AGENT, annualPeriods);
+//        EdgarCashFlowStatementService cashFlowStatementService = new EdgarCashFlowStatementService(USER_AGENT, annualPeriods);
 //        FinancialDataLoader dataLoader =  new EdgarDataLoader(ticker, balanceSheetService, incomeStatementService, cashFlowStatementService);
 
         FinancialDataLoader dataLoader =  factory.create(ticker.trim().toUpperCase(Locale.ROOT), annualPeriods);
