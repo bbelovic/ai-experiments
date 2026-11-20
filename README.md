@@ -105,7 +105,8 @@ as the other EDGAR services. It returns the shared `FinancialStatements` model:
 
 ```java
 FinancialStatements statements = new EdgarCashFlowStatementService(
-        "MyApp your.email@example.com", 4).annualCashFlowStatement("AAPL");
+        "MyApp your.email@example.com")
+        .annualCashFlowStatement(new FinancialStatementRequest("AAPL", 4));
 ```
 
 The metric enum defines 14 rows: net income, depreciation/depletion/amortization,

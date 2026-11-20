@@ -19,6 +19,15 @@
 - Add GLOSSARY.md terms only after the learner demonstrates understanding.
 - Prepare later implementation lessons adaptively; the roadmap is not evidence of completed learning.
 
+## Spring IoC design direction (2026-11-18)
+
+- The final application may use Spring Boot or plain Spring Framework IoC. Treat this as the expected composition direction, without requiring an immediate framework migration.
+- The learner wants the loader's three statement-service dependencies to remain explicit constructor parameters. Preserve constructor injection for stable collaborators.
+- Proactively flag designs that complicate IoC: request-specific ticker/annualPeriods in singleton constructor state, mutable per-request fields on shared beans, hidden dependency construction inside business operations, service-locator lookups, circular dependencies, and unnecessary bean-scope/factory machinery. Explain concrete tradeoffs before proposing changes.
+- The learner selected reusable constructor-injected services and an immutable FinancialStatementRequest record passed to operation methods. Codex implemented this API refactor at their request; the custom loader factory has been removed. No Spring bean annotations or provider integration were added as part of this refactor.
+- For checkpoint A, assess validation, normalized argument forwarding, controlled results, missing-data preservation, and failure propagation regardless of composition approach. Do not require a production factory solely to satisfy the original lesson wording. Lesson 0005's factory exercise and earlier review notes describe one approach and must be read with this update.
+- Keep unit tests independent of a Spring context where plain constructor composition suffices. Do not automatically add Spring annotations or redesign application code when only a review was requested.
+
 ## Repository constraints
 - Preserve existing local modifications: README.md, run.sh, the DividendWatchBrowserLogin test, and untracked UNP JSON samples.
 - No production code was changed to prepare the teaching materials.
@@ -35,7 +44,7 @@ Recorded on 2026-11-09 at the learner's request. Revisit during implementation s
 Verified by source inspection: getFinancialStatements now returns FinancialStatements via return dataLoader.load(), and years has been renamed to annualPeriods throughout the wrapper.
 
 - [ ] Session 5: Document annualPeriods as the requested number of recent annual filing periods, not calendar-year selection; choose and validate an application-defined upper bound. Explain behavior when fewer periods are available.
-- [ ] Session 5: Make service/loader construction replaceable, for example through an injected factory, so tool tests can use fixtures without live SEC requests. Preserve per-call ticker and period settings.
+- [x] Session 5: Make the tool's loader replaceable through constructor injection; request-specific ticker and period settings travel in FinancialStatementRequest. Missing test cases remain the learner's task.
 - [ ] Sessions 4-5: Move the SEC User-Agent from the hardcoded placeholder to external configuration.
 - [ ] Sessions 5-7: Define how the tool adapter exposes validation errors, unknown tickers, and upstream failures. Preserve unavailable metrics as null within successful results; do not convert an operation failure into successful empty data.
 - [ ] Sessions 5-7: Register the wrapper as a Spring AI tool and expose it through MCP using the selected compatible release. Verify that the result reaches the client.
@@ -60,7 +69,15 @@ Read MISSION.md, RESOURCES.md, NOTES.md, GLOSSARY.md, recent learning records, a
 - The learner explained why to retain ChatResponse (learning record 0014); other recall prompts can be revisited through later practice.
 
 ## Session 5 preparation
-- Prepared lessons/0005-a-reliable-financial-tool.html. Checkpoint A: inject a loader factory, normalize/validate arguments, and test deterministic synthetic statement results. Checkpoint B: add Spring AI annotations and verify a local JSON callback. No application changes were made to implement the exercise.
+- Prepared lessons/0005-a-reliable-financial-tool.html. Current Checkpoint A: use the supplied request-record APIs and injected loader; finish the remaining behavior tests. Checkpoint B: add Spring AI annotations and verify a local JSON callback. The original factory exercise has been superseded by the agreed IoC design.
 - Keep the existing two-module arrangement. Work in ai-tooling; no chat-client-to-tooling dependency, model request, or MCP endpoint is needed yet.
 - Match the actual existing Spring AI 2.0.0 line for the tooling model library. ToolCallbacks/ToolCallback/ToolDefinition signatures and annotation locations were checked against cached 2.0.0 classes; current reference documentation was consulted for concepts.
-- Session 5 addresses the wrapper's deferred period bound and factory items. External User-Agent wiring and client-facing error mapping remain for application/server integration. Authorization remains session 11.
+- Record constructor: reject blank ticker/nonpositive periods and normalize ticker. Tool: reject null request and enforce at most four periods. Services: accept larger positive period counts for other callers. External User-Agent wiring and client-facing error mapping remain for application/server integration. Authorization remains session 11.
+
+## API refactor and exact resume point (2026-11-18)
+- Supplied by Codex at the learner's request: FinancialStatementRequest; load(request) on FinancialDataLoader; three EDGAR service methods taking the record; stable service-only constructor dependencies on EdgarDataLoader; no request values held on services. The existing CLI has been adapted.
+- DividendWatchDataLoader implements the same request API and caps returned tables to the requested number of leading periods, preserving null/zero values. Its CLI requests Integer.MAX_VALUE to retain its prior all-scraped-period output. Browser scraping itself still visits the source's normal tables.
+- Existing tests were adapted to the signatures, not expanded to solve the learner's tool-test gaps. Separate regression checks cover Dividend Watch limiting and reuse of the cash-flow service for different period requests.
+- Tooling suite: 63 tests, 60 passed and 3 browser tests skipped; no live SEC/model calls.
+- Next learner work in EdgarDataLoaderToolTest: normalized request forwarding, an all-single-period fixture with two periods requested, upstream error propagation, and missing request. Then continue B with JSON shaped as {"request":{"ticker":"AAPL","annualPeriods":2}} and inspect the generated schema.
+- When Spring wiring is introduced, explicitly select the EDGAR FinancialDataLoader implementation if multiple provider loaders are beans; avoid ambiguous interface injection. Actual bean composition is deferred.

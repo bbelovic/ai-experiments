@@ -10,36 +10,38 @@
 <p>For this operation, the contract includes a name, a description, input fields, validation, a structured result, and failure behavior. Spring AI can turn an <code>@Tool</code>-annotated method into a <code>ToolCallback</code>. A description helps a model select the operation; application code must still enforce its rules. See <a href="https://docs.spring.io/spring-ai/reference/api/tools.html">Spring AI: Tool Calling</a>.</p>
 <pre>JSON arguments
   → local Spring AI ToolCallback
-  → getFinancialStatements(ticker, annualPeriods)
-  → validate, normalize, create loader, load
+  → FinancialStatementRequest(ticker, annualPeriods)
+  → getFinancialStatements(request)
+  → validate tool limit, delegate to injected loader
   → FinancialStatements serialized as a tool result</pre>
 <p>No model selects the tool in this exercise. We supply the JSON ourselves to isolate conversion and execution. The callback is also not an MCP server; that protocol boundary comes next.</p>
 <h2>Checkpoint A: make the Java contract testable</h2>
-<p>Start with <a href="../ai-tooling/src/main/java/org/example/tools/EdgarDataLoaderTool.java">EdgarDataLoaderTool.java</a>. It currently constructs three live SEC services inside the operation. Introduce a small factory boundary so a test can supply a loader returning fixed data.</p>
-<details><summary>Suggested interface shape</summary><pre>@FunctionalInterface
-public interface FinancialDataLoaderFactory {
-    FinancialDataLoader create(String ticker, int annualPeriods);
-}</pre><p>Put it in the loader package and inject an instance into the tool's constructor. Keep it as a plain Java interface. A test implementation can capture arguments and return <code>() -&gt; fixtureStatements</code>. Do not introduce a Spring context just to test this method.</p></details>
-<ol><li>Make the operation public for direct use outside its package.</li><li>Reject null/blank tickers. Normalize accepted input with <code>trim()</code> and <code>toUpperCase(Locale.ROOT)</code> before delegation. Do not invent an alphabet-only ticker rule: punctuation may be meaningful.</li><li>Choose an explicit period bound; use <code>1..4</code> for this exercise. Describe <code>annualPeriods</code> as the requested maximum number of recent annual periods, not a calendar year. The source may return fewer.</li><li>Validate before invoking the factory. Return the loader's result without replacing missing metric values.</li><li>Move SEC service construction to a production factory whose constructor receives the User-Agent. No model-supplied credentials or User-Agent arguments. External configuration wiring is deferred until a server/application actually uses this factory.</li></ol>
-<p>Keep the existing CLI working. Its direct construction of <code>EdgarDataLoader</code> need not change. This refactor concerns the wrapper; it does not require rewriting the statement services.</p>
+<p>Following our Spring IoC discussion, Codex refactored the APIs to use <a href="../ai-tooling/src/main/java/org/example/statements/FinancialStatementRequest.java">FinancialStatementRequest</a>. The tool now receives a <code>FinancialDataLoader</code> through its constructor. The loader keeps the three statement services as explicit constructor dependencies. Request-specific inputs travel through operation methods; no custom factory is required.</p>
+<details><summary>Current API shape</summary><pre>FinancialStatements getFinancialStatements(FinancialStatementRequest request)
+FinancialStatements load(FinancialStatementRequest request)
+FinancialStatements annualBalanceSheetStatement(FinancialStatementRequest request)
+// The income and cash-flow service methods take the same request.</pre><p>A test loader can be <code>request -&gt; TEST_FIXTURE</code>. Capture or assert its request to verify delegation. No Spring context is needed for these tests.</p></details>
+<p>The request's compact constructor rejects null/blank tickers and nonpositive period counts and normalizes the ticker. The tool rejects a missing request and applies the tool-specific maximum of four periods. General service callers can request more. Stable configuration such as User-Agent remains a constructor dependency of the services; external Spring wiring is later work.</p>
+<div class="note"><strong>Resume here: finish your test gaps.</strong> The API refactor and adaptations to your existing tests are supplied; the missing test cases below remain your exercise. Do not add annotations or callback tests until A is reviewed. Normalization now occurs during request construction, before the tool method runs.</div>
 <h2>Prove behavior before adding AI annotations</h2>
-<p>Create <code>ai-tooling/src/test/java/org/example/tools/EdgarDataLoaderToolTest.java</code>. Use the existing JUnit/AssertJ dependencies and a hand-written factory or lambda. Build a small synthetic <a href="../ai-tooling/src/main/java/org/example/statements/FinancialStatements.java">FinancialStatements</a> fixture with source <code>TEST_FIXTURE</code>, periods <code>2024</code> and <code>2023</code>, a reported value <code>"0"</code>, and an unavailable value <code>null</code>. Do not represent it as real EDGAR data.</p>
+<p>Continue <code>ai-tooling/src/test/java/org/example/tools/EdgarDataLoaderToolTest.java</code>. Use the existing JUnit/AssertJ dependencies and an injected loader or lambda. Your synthetic <a href="../ai-tooling/src/main/java/org/example/statements/FinancialStatements.java">FinancialStatements</a> fixture uses source <code>TEST_FIXTURE</code>, a reported value <code>"0"</code>, and an unavailable value <code>null</code>. Preserve those values in success tests.</p>
 <table><thead><tr><th>Case</th><th>Expected observation</th></tr></thead><tbody>
-<tr><td>" aapl ", 2</td><td>Factory receives AAPL and 2; caller receives the fixture.</td></tr>
-<tr><td>Null or whitespace ticker</td><td>Validation error; factory has not been called.</td></tr>
-<tr><td>Periods 0, -1, or 5</td><td>Validation error; factory has not been called.</td></tr>
+<tr><td>Request constructed with " aapl ", 2</td><td>Injected loader receives a request containing AAPL and 2; caller receives the fixture. Still to test.</td></tr>
+<tr><td>Null or whitespace ticker; periods 0 or -1</td><td>Request construction fails before loader execution. Existing tests adapted to the record.</td></tr>
+<tr><td>Request with periods 5</td><td>Record construction succeeds, but the tool rejects it before loader execution. Existing test adapted.</td></tr>
+<tr><td>Missing request object</td><td>Tool rejects it without calling the loader. Add this record-boundary case.</td></tr>
 <tr><td>Source has one period when two were requested</td><td>Return available data; fabricate no second period.</td></tr>
 <tr><td>Loader throws an upstream error</td><td>Operation fails; return no fake successful empty statement.</td></tr>
 </tbody></table>
 <p>For the null-bearing values map, use a map implementation allowing null values. <code>Map.of(...)</code> does not. The fixture tests missing data semantics, not live extraction accuracy.</p>
 <pre>mvn -pl ai-tooling -am -Dtest=EdgarDataLoaderToolTest test</pre>
-<p><strong>Stop here for the first review.</strong> Send the tool, factory, and test paths plus the test output. No need to run Gemini. If Mockito's existing agent-attachment restriction appears in the sandbox, use the established approved test workflow rather than changing application behavior.</p>
+<p><strong>Stop here for review.</strong> Send the test path and output. No production factory or model call is required. The remaining gaps are normalized request forwarding, an entirely one-period result when two were requested, upstream failure propagation, and a missing request object. If Mockito's existing agent-attachment restriction appears in the sandbox, use the established approved test workflow rather than changing application behavior.</p>
 <h2>Checkpoint B: describe and invoke the same contract</h2>
 <p>Continue after A is working. Add <code>org.springframework.ai:spring-ai-model:2.0.0</code> to <code>ai-tooling/pom.xml</code>: this matches the AI BOM currently used by <code>chat-client</code>. For this single dependency, an explicit version is enough; no model-provider starter or Boot migration is needed in tooling. The earlier lesson's 2.0.2 reference is not a reason to mix versions now.</p>
-<p>In the tooling module's properties, enable <code>maven.compiler.parameters=true</code> so reflection can retain meaningful parameter names. Add <code>@Tool</code> to the operation and <code>@ToolParam</code> descriptions to its arguments.</p>
+<p>In the tooling module's properties, enable <code>maven.compiler.parameters=true</code> so reflection can retain the method parameter name <code>request</code>. Add <code>@Tool</code> to the operation and <code>@ToolParam</code> descriptions to the request parameter and relevant record components. Keep provider configuration and credentials outside the record.</p>
 <details><summary>Annotation imports and description checklist</summary><pre>import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;</pre><p>Write the descriptions yourself. Include: annual statements; ticker input; period bound; fewer periods possible; formatted value strings; null for unavailable facts. A numeric description is not executable range validation. Keep the runtime checks from A.</p></details>
-<p>Use <code>ToolCallbacks.from(tool)</code> in a local test to create the callback. Confirm the generated schema names <code>ticker</code> and <code>annualPeriods</code> and marks them required. Invoke it using valid JSON and parse its returned JSON to verify the original null and zero remain distinct.</p>
+<p>Use <code>ToolCallbacks.from(tool)</code> in a local test to create the callback. For this method-based tool, inspect the generated outer <code>request</code> object and its nested <code>ticker</code> and <code>annualPeriods</code> fields; verify required fields. Invoke it using the matching nested JSON and parse its returned JSON to verify null and zero remain distinct.</p>
 <details><summary>Small callback inspection hint</summary><pre>import org.springframework.ai.support.ToolCallbacks;
 
 var callbacks = ToolCallbacks.from(tool);
@@ -49,9 +51,9 @@ System.out.println(definition.name());
 System.out.println(definition.inputSchema());
 
 String json = callbacks[0].call(
-        "{\"ticker\":\"AAPL\",\"annualPeriods\":2}");
-// TODO: parse json and assert the fixture's zero/null values survived.</pre><p>The API signatures were checked against the locally installed Spring AI 2.0.0 JAR. Your fixture factory makes this execution deterministic without a model or SEC request.</p></details>
-<p>Add one callback test passing <code>annualPeriods=5</code> and verify the factory is not invoked. The callback may wrap the validation exception; inspect its cause rather than assuming it is the exact exception type thrown by a direct Java call.</p>
+        "{\"request\":{\"ticker\":\"AAPL\",\"annualPeriods\":2}}");
+// TODO: parse json and assert the fixture's zero/null values survived.</pre><p>The API signatures were checked against the locally installed Spring AI 2.0.0 JAR. Your injected fixture loader makes this execution deterministic without a model or SEC request.</p></details>
+<p>Add a callback test with nested <code>annualPeriods=5</code> and verify the loader is not invoked. Also test invalid record data: deserialization constructs the record and runs its compact constructor. The callback may wrap validation failures; inspect the cause instead of assuming the exception type from a direct Java call.</p>
 <p>We keep failures explicit in these local tests. Translating expected failures into client-facing tool responses belongs to the later MCP/application adapter; do not catch every exception and return an empty success object.</p>
 <h2>Quick contract check</h2><form id="quiz"><fieldset><legend>The parameter description says "1 to 4 periods", but code has no range check. What enforces the rule?</legend><label><input type="radio" name="q1" value="description"> The description alone</label><label><input type="radio" name="q1" value="code"> Application validation code</label><label><input type="radio" name="q1" value="model"> The model's confidence</label><p id="f1" class="feedback" role="status"></p></fieldset>
 <fieldset><legend>A successful response contains "2024": "0" and "2023": null. What is justified?</legend><label><input type="radio" name="q2" value="zero"> Both periods report zero</label><label><input type="radio" name="q2" value="failed"> Both lookups have failed</label><label><input type="radio" name="q2" value="missing"> Only 2024 reports zero</label><p id="f2" class="feedback" role="status"></p></fieldset><button type="submit">Check answers</button></form>
