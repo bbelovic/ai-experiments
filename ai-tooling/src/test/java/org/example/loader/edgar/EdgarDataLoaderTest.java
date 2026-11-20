@@ -1,6 +1,7 @@
 package org.example.loader.edgar;
 
 import org.example.statements.FinancialStatements;
+import org.example.statements.FinancialStatementRequest;
 import org.example.statements.FinancialStatements.StatementRow;
 import org.example.statements.FinancialStatements.StatementTable;
 import org.example.statements.balancesheet.EdgarBalanceSheetService;
@@ -47,14 +48,15 @@ class EdgarDataLoaderTest {
 
     @Test
     void loaderReturnFinancialStatementData() {
-        var loader = new EdgarDataLoader(TICKER, balanceSheetService, incomeStatementService, cashFlowService);
-        when(balanceSheetService.annualBalanceSheetStatement(TICKER))
+        var request = new FinancialStatementRequest(TICKER, 4);
+        var loader = new EdgarDataLoader(balanceSheetService, incomeStatementService, cashFlowService);
+        when(balanceSheetService.annualBalanceSheetStatement(request))
                 .thenReturn(BALANCE_SHEET);
-        when(incomeStatementService.annualIncomeStatement(TICKER))
+        when(incomeStatementService.annualIncomeStatement(request))
                 .thenReturn(INCOME_STATEMENT);
-        when(cashFlowService.annualCashFlowStatement(TICKER))
+        when(cashFlowService.annualCashFlowStatement(request))
                 .thenReturn(CASH_FLOW_STATEMENT);
-        var actual = loader.load();
+        var actual = loader.load(request);
 
         assertThat(actual.ticker()).isEqualTo(TICKER);
         assertThat(actual.sourceUrl()).containsAll(

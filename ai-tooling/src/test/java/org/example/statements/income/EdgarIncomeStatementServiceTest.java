@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.example.statements.FinancialStatements;
+import org.example.statements.FinancialStatementRequest;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -18,8 +19,7 @@ class EdgarIncomeStatementServiceTest {
     private final EdgarIncomeStatementService service = new EdgarIncomeStatementService(
             HttpClient.newHttpClient(),
             objectMapper,
-            "ai-experiments test@example.com",
-            4
+            "ai-experiments test@example.com"
     );
 
     @Test
@@ -28,7 +28,7 @@ class EdgarIncomeStatementServiceTest {
         JsonNode companyFacts = readFixtureJson("AAPL-company-facts.json");
 
         FinancialStatements statements = service.extractAnnualIncomeStatement(
-                "aapl",
+                new FinancialStatementRequest("aapl", 4),
                 submissions,
                 companyFacts
         );
@@ -138,7 +138,7 @@ class EdgarIncomeStatementServiceTest {
         concepts.remove(GROSS_PROFIT.getUsGAAPConcepts());
 
         FinancialStatements statements = service.extractAnnualIncomeStatement(
-                "aapl", readFixtureJson("AAPL-submissions.json"), companyFacts);
+                new FinancialStatementRequest("aapl", 4), readFixtureJson("AAPL-submissions.json"), companyFacts);
 
         for (IncomeStatementMetricEnumType metric : new IncomeStatementMetricEnumType[]{COST_OF_REVENUE, GROSS_PROFIT}) {
             FinancialStatements.StatementRow statementRow = row(statements, metric);
@@ -167,7 +167,7 @@ class EdgarIncomeStatementServiceTest {
         }
 
         FinancialStatements statements = service.extractAnnualIncomeStatement(
-                "aapl", readFixtureJson("AAPL-submissions.json"), companyFacts);
+                new FinancialStatementRequest("aapl", 4), readFixtureJson("AAPL-submissions.json"), companyFacts);
 
         for (String period : statements.statements().getFirst().periods()) {
             assertThat(row(statements, REVENUE).values()).containsEntry(period, "0");

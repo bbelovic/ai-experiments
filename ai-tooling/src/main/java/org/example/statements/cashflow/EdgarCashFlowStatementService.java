@@ -3,6 +3,7 @@ package org.example.statements.cashflow;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.statements.FinancialStatements;
+import org.example.statements.FinancialStatementRequest;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -34,36 +35,33 @@ public final class EdgarCashFlowStatementService {
     private final HttpClient client;
     private final ObjectMapper objectMapper;
     private final String userAgent;
-    private final int cashFlowStatementPeriods;
 
-    public EdgarCashFlowStatementService(String userAgent, int cashFlowStatementPeriods) {
-        this(HttpClient.newHttpClient(), new ObjectMapper(), userAgent, cashFlowStatementPeriods);
+    public EdgarCashFlowStatementService(String userAgent) {
+        this(HttpClient.newHttpClient(), new ObjectMapper(), userAgent);
     }
 
     EdgarCashFlowStatementService(
             HttpClient client,
             ObjectMapper objectMapper,
-            String userAgent,
-            int cashFlowStatementPeriods
+            String userAgent
     ) {
         this.client = client;
         this.objectMapper = objectMapper;
         this.userAgent = userAgent;
-        this.cashFlowStatementPeriods = cashFlowStatementPeriods;
     }
 
-    public FinancialStatements annualCashFlowStatement(String ticker) {
+    public FinancialStatements annualCashFlowStatement(FinancialStatementRequest request) {
         JsonNode companies = fetchJson("https://www.sec.gov/files/company_tickers.json");
-        String cik = findCikForTicker(companies, ticker);
+        String cik = findCikForTicker(companies, request.ticker());
         String paddedCik = String.format("%010d", Long.parseLong(cik));
         JsonNode submissions = fetchJson("https://data.sec.gov/submissions/CIK" + paddedCik + ".json");
         JsonNode companyFacts = fetchJson("https://data.sec.gov/api/xbrl/companyfacts/CIK" + paddedCik + ".json");
 
-        return extractAnnualCashFlowStatement(ticker, submissions, companyFacts);
+        return extractAnnualCashFlowStatement(request, submissions, companyFacts);
     }
 
-    FinancialStatements extractAnnualCashFlowStatement(String ticker, JsonNode submissions, JsonNode companyFacts) {
-        List<AnnualFiling> filings = latest10Ks(submissions, cashFlowStatementPeriods);
+    FinancialStatements extractAnnualCashFlowStatement(FinancialStatementRequest request, JsonNode submissions, JsonNode companyFacts) {
+        List<AnnualFiling> filings = latest10Ks(submissions, request.annualPeriods());
         List<String> periods = filings.stream()
                 .map(AnnualFiling::fiscalYear)
                 .toList();
@@ -88,7 +86,7 @@ public final class EdgarCashFlowStatementService {
                 .map(filing -> filing.sourceUrl(companyFacts.path("cik").asText()))
                 .toList();
         return new FinancialStatements(
-                ticker.trim().toUpperCase(Locale.ROOT),
+                request.ticker(),
                 "EDGAR",
                 sourceUrl,
                 List.of(new FinancialStatements.StatementTable(

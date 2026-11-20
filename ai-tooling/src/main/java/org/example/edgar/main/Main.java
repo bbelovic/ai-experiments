@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.loader.dividendwatch.DividendWatchBrowserLogin;
 import org.example.loader.dividendwatch.DividendWatchDataLoader;
 import org.example.loader.edgar.EdgarDataLoader;
+import org.example.statements.FinancialStatementRequest;
 import org.example.statements.balancesheet.EdgarBalanceSheetService;
 import org.example.statements.cashflow.EdgarCashFlowStatementService;
 import org.example.statements.income.EdgarIncomeStatementService;
@@ -18,16 +19,17 @@ public class Main {
 
         if ("DIVIDEND_WATCH".equals(mode)) {
             var login = DividendWatchBrowserLogin.fromSystemProperties();
-            var loader = new DividendWatchDataLoader(ticker, login);
-            var statements = loader.load();
+            var loader = new DividendWatchDataLoader(login);
+            // Preserve the CLI's existing behavior of returning all scraped periods.
+            var statements = loader.load(new FinancialStatementRequest(ticker, Integer.MAX_VALUE));
             LOGGER.info(new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(statements));
 
         } else if ("EDGAR".equals(mode)) {
             String userAgent = property("edgar.user.agent", "ai-experiments test@example.com");
-            var loader = new EdgarDataLoader(ticker, new EdgarBalanceSheetService(userAgent, 4),
-                    new EdgarIncomeStatementService(userAgent, 4),
-                    new EdgarCashFlowStatementService(userAgent, 4));
-            var statements = loader.load();
+            var loader = new EdgarDataLoader(new EdgarBalanceSheetService(userAgent),
+                    new EdgarIncomeStatementService(userAgent),
+                    new EdgarCashFlowStatementService(userAgent));
+            var statements = loader.load(new FinancialStatementRequest(ticker, 4));
             LOGGER.info(new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(statements));
         } else {
             LOGGER.error("Unknown or unsupported mode: [{}]", mode);

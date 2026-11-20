@@ -3,6 +3,7 @@ package org.example.statements.balancesheet;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.statements.FinancialStatements;
+import org.example.statements.FinancialStatementRequest;
 import org.example.statements.FinancialStatements.StatementTable;
 import org.example.statements.FinancialStatements.StatementRow;
 
@@ -28,38 +29,36 @@ public final class EdgarBalanceSheetService {
     private final HttpClient client;
     private final ObjectMapper objectMapper;
     private final String userAgent;
-    private final int balanceSheetPeriods;
     private final Collection<BalanceSheetMetricEnumType> metricDefinitions;
 
-    public EdgarBalanceSheetService(String userAgent, int balanceSheetPeriods) {
-        this(HttpClient.newHttpClient(), new ObjectMapper(), userAgent, balanceSheetPeriods, EnumSet.allOf(BalanceSheetMetricEnumType.class));
+    public EdgarBalanceSheetService(String userAgent) {
+        this(HttpClient.newHttpClient(), new ObjectMapper(), userAgent, EnumSet.allOf(BalanceSheetMetricEnumType.class));
     }
 
-    EdgarBalanceSheetService(HttpClient client, ObjectMapper objectMapper, String userAgent, int balanceSheetPeriods,
+    EdgarBalanceSheetService(HttpClient client, ObjectMapper objectMapper, String userAgent,
                              Collection<BalanceSheetMetricEnumType> metricDefinitions) {
         this.client = client;
         this.objectMapper = objectMapper;
         this.userAgent = userAgent;
-        this.balanceSheetPeriods = balanceSheetPeriods;
         this.metricDefinitions = metricDefinitions;
     }
 
-    public FinancialStatements annualBalanceSheetStatement(String ticker) {
+    public FinancialStatements annualBalanceSheetStatement(FinancialStatementRequest request) {
         JsonNode companies = fetchJson("https://www.sec.gov/files/company_tickers.json");
-        String cik = findCikForTicker(companies, ticker);
+        String cik = findCikForTicker(companies, request.ticker());
         String paddedCik = String.format("%010d", Long.parseLong(cik));
         JsonNode submissions = fetchJson("https://data.sec.gov/submissions/CIK" + paddedCik + ".json");
         JsonNode companyFacts = fetchJson("https://data.sec.gov/api/xbrl/companyfacts/CIK" + paddedCik + ".json");
 
-        return extractAnnualBalanceSheetStatement(ticker, submissions, companyFacts);
+        return extractAnnualBalanceSheetStatement(request, submissions, companyFacts);
     }
 
     FinancialStatements extractAnnualBalanceSheetStatement(
-            String ticker,
+            FinancialStatementRequest request,
             JsonNode submissions,
             JsonNode companyFacts
     ) {
-        List<AnnualFiling> filings = latest10Ks(submissions, balanceSheetPeriods);
+        List<AnnualFiling> filings = latest10Ks(submissions, request.annualPeriods());
         List<String> periods = filings.stream()
                 .map(AnnualFiling::fiscalYear)
                 .toList();
@@ -84,7 +83,7 @@ public final class EdgarBalanceSheetService {
                 .map(filing -> filing.sourceUrl(companyFacts.path("cik").asText()))
                 .toList();
         return new FinancialStatements(
-                ticker.trim().toUpperCase(Locale.ROOT),
+                request.ticker(),
                 "EDGAR",
                 sourceUrl,
                 List.of(new StatementTable(

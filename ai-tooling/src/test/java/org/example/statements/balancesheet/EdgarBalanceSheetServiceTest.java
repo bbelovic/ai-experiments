@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.example.statements.FinancialStatements;
+import org.example.statements.FinancialStatementRequest;
 import org.example.statements.FinancialStatements.StatementRow;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -27,7 +28,6 @@ class EdgarBalanceSheetServiceTest {
             HttpClient.newHttpClient(),
             objectMapper,
             "ai-experiments test@example.com",
-            4,
             EnumSet.allOf(BalanceSheetMetricEnumType.class)
     );
 
@@ -40,12 +40,11 @@ class EdgarBalanceSheetServiceTest {
                 HttpClient.newHttpClient(),
                 objectMapper,
                 "ai-experiments test@example.com",
-                1,
                 EnumSet.allOf(BalanceSheetMetricEnumType.class)
         );
 
         FinancialStatements actualStatements = localService.extractAnnualBalanceSheetStatement(
-                "aapl",
+                new FinancialStatementRequest("aapl", 1),
                 submissions,
                 companyFacts
         );
@@ -171,7 +170,7 @@ class EdgarBalanceSheetServiceTest {
 
     private FinancialStatements getStatementsFrom10K() throws JsonProcessingException {
         FinancialStatements statements = service.extractAnnualBalanceSheetStatement(
-                "mo",
+                new FinancialStatementRequest("mo", 4),
                 objectMapper.readTree("""
                         {
                           "name": "Altria Group, Inc.",
@@ -462,7 +461,7 @@ class EdgarBalanceSheetServiceTest {
         }
         addFact(facts, "Assets", "2024-09-28", 90).put("accn", "previous-accession");
 
-        FinancialStatements result = service.extractAnnualBalanceSheetStatement("TEST", submissions, facts);
+        FinancialStatements result = service.extractAnnualBalanceSheetStatement(new FinancialStatementRequest("TEST", 4), submissions, facts);
 
         assertThat(row(result, TOTAL_ASSETS).values()).containsExactly(
                 Map.entry("2025", "100"), Map.entry("2024", "90"));
@@ -545,7 +544,7 @@ class EdgarBalanceSheetServiceTest {
     }
 
     private void assertInvalidReportDate(ObjectNode submissions) {
-        assertThatThrownBy(() -> service.extractAnnualBalanceSheetStatement("TEST", submissions, syntheticFacts()))
+        assertThatThrownBy(() -> service.extractAnnualBalanceSheetStatement(new FinancialStatementRequest("TEST", 4), submissions, syntheticFacts()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("reportDate")
                 .hasMessageContaining("selected-accession");
@@ -627,7 +626,7 @@ class EdgarBalanceSheetServiceTest {
     }
 
     private FinancialStatements extractSynthetic(String reportDate, ObjectNode facts) {
-        return service.extractAnnualBalanceSheetStatement("TEST", syntheticSubmissions(reportDate), facts);
+        return service.extractAnnualBalanceSheetStatement(new FinancialStatementRequest("TEST", 4), syntheticSubmissions(reportDate), facts);
     }
 
     private ObjectNode syntheticSubmissions(String reportDate) {

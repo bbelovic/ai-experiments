@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.example.statements.FinancialStatements;
+import org.example.statements.FinancialStatementRequest;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -21,7 +22,7 @@ class EdgarCashFlowStatementServiceTest {
     private static final String ACCESSION_2025 = "0000320193-25-000079";
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final EdgarCashFlowStatementService service = new EdgarCashFlowStatementService(
-            HttpClient.newHttpClient(), objectMapper, "ai-experiments test@example.com", 4);
+            HttpClient.newHttpClient(), objectMapper, "ai-experiments test@example.com");
 
     @Test
     void extractsAnnualCashFlowFromRealAAPL10Ks() throws Exception {
@@ -196,28 +197,29 @@ class EdgarCashFlowStatementServiceTest {
 
     @Test
     void respectsRequestedNumberOfAnnualPeriods() throws Exception {
-        EdgarCashFlowStatementService onePeriodService = new EdgarCashFlowStatementService(
-                HttpClient.newHttpClient(), objectMapper, "ai-experiments test@example.com", 1);
-
-        FinancialStatements statements = onePeriodService.extractAnnualCashFlowStatement(
-                "aapl", readFixtureJson("AAPL-submissions.json"), readFixtureJson("AAPL-company-facts-pretty.json"));
+        FinancialStatements statements = service.extractAnnualCashFlowStatement(
+                new FinancialStatementRequest("aapl", 1), readFixtureJson("AAPL-submissions.json"), readFixtureJson("AAPL-company-facts-pretty.json"));
 
         assertThat(statements.statements().getFirst().periods()).containsExactly("2025");
         assertThat(row(statements, OPERATING_CASH_FLOW).values()).hasSize(1);
         assertThat(statements.sourceUrl()).hasSize(1);
+        FinancialStatements fourPeriods = service.extractAnnualCashFlowStatement(
+                new FinancialStatementRequest("aapl", 4), readFixtureJson("AAPL-submissions.json"),
+                readFixtureJson("AAPL-company-facts-pretty.json"));
+        assertThat(fourPeriods.statements().getFirst().periods()).hasSize(4);
     }
 
     @Test
     void rejectsSubmissionsWithoutAnnualFilings() throws Exception {
         JsonNode companyFacts = readFixtureJson("AAPL-company-facts-pretty.json");
 
-        assertThatThrownBy(() -> service.extractAnnualCashFlowStatement("AAPL", objectMapper.createObjectNode(), companyFacts))
+        assertThatThrownBy(() -> service.extractAnnualCashFlowStatement(new FinancialStatementRequest("AAPL", 4), objectMapper.createObjectNode(), companyFacts))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("No recent 10-K found in submissions data");
     }
 
     private FinancialStatements extract(JsonNode companyFacts) throws Exception {
-        return service.extractAnnualCashFlowStatement("aapl", readFixtureJson("AAPL-submissions.json"), companyFacts);
+        return service.extractAnnualCashFlowStatement(new FinancialStatementRequest("aapl", 4), readFixtureJson("AAPL-submissions.json"), companyFacts);
     }
 
     private ArrayNode factsFor(JsonNode companyFacts, CashFlowStatementMetricEnumType metric) {
