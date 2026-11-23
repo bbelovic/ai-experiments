@@ -2,19 +2,23 @@ package org.example.tools;
 
 import org.assertj.core.api.Assertions;
 import org.example.loader.FinancialDataLoader;
-import org.example.statements.FinancialStatements;
 import org.example.statements.FinancialStatementRequest;
+import org.example.statements.FinancialStatements;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
 
 class EdgarDataLoaderToolTest {
     private static final String TICKER = "AAPL";
@@ -32,12 +36,16 @@ class EdgarDataLoaderToolTest {
             )
     );
 
-    @Test
-    void validInputArgumentsAreAccepted() {
-        EdgarDataLoaderTool tool = new EdgarDataLoaderTool(financialDataLoaderMock());
-        FinancialStatements financialStatements = tool.getFinancialStatements(new FinancialStatementRequest(TICKER, 2));
+    @ParameterizedTest
+    @MethodSource("validArguments")
+    void validInputArgumentsAreAccepted(String ticker, int annualPeriods) {
+        FinancialDataLoader financialDataLoaderMock = financialDataLoaderMock();
+        EdgarDataLoaderTool tool = new EdgarDataLoaderTool(financialDataLoaderMock);
+        FinancialStatements financialStatements = tool.getFinancialStatements(
+                new FinancialStatementRequest(ticker, annualPeriods));
 
-        Assertions.assertThat(financialStatements).isEqualTo(TEST_FIXTURE);
+        assertThat(financialStatements).isEqualTo(TEST_FIXTURE);
+        verify(financialDataLoaderMock).load(new FinancialStatementRequest(ticker, annualPeriods));
     }
 
     private FinancialDataLoader financialDataLoaderMock() {
@@ -46,16 +54,24 @@ class EdgarDataLoaderToolTest {
         return dataLoader;
     }
 
+    public static Stream<Arguments> validArguments() {
+        return Stream.of(
+                Arguments.of("AAPL", 2),
+                Arguments.of("aapl", 2),
+                Arguments.of("  aapl ", 2)
+        );
+    }
+
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {" ", "\t", "\n"})
     void nullOrBlankTickerIsNotAllowed(String ticker) {
         Assertions.assertThatThrownBy(() -> {
-            new EdgarDataLoaderTool(request -> {
-                throw new AssertionError("Loader should not be called with invalid input.");
-            })
-                    .getFinancialStatements(new FinancialStatementRequest(ticker, 2));
-        }).isExactlyInstanceOf(IllegalArgumentException.class)
+                    new EdgarDataLoaderTool(_ -> {
+                        throw new AssertionError("Loader should not be called with invalid input.");
+                    })
+                            .getFinancialStatements(new FinancialStatementRequest(ticker, 2));
+                }).isExactlyInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Invalid stock ticker: [%s]".formatted(ticker));
     }
 
@@ -63,12 +79,34 @@ class EdgarDataLoaderToolTest {
     @ValueSource(ints = {0, -1, 5})
     void annualPeriodsInAcceptedRange(int annualPeriods) {
         Assertions.assertThatThrownBy(() -> {
-                    new EdgarDataLoaderTool(request -> {
+                    new EdgarDataLoaderTool(_ -> {
                         throw new AssertionError("Loader should not be called with invalid input.");
                     })
                             .getFinancialStatements(new FinancialStatementRequest(TICKER, annualPeriods));
                 }).isExactlyInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Invalid annualPeriods value: [%d]".formatted(annualPeriods));
+    }
+
+    @Test
+    void nullRequestAreRejected() {
+        assertThatThrownBy(() -> {
+            new EdgarDataLoaderTool((request) -> {
+                if (request == null)
+                    throw new IllegalArgumentException("Request is null");
+                return TEST_FIXTURE;
+            }).getFinancialStatements(null);
+        }).isExactlyInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void exceptionFromLoaderIsPropagatedToCaller() {
+        FinancialDataLoader dataLoader = mock(FinancialDataLoader.class);
+        when(dataLoader.load(any(FinancialStatementRequest.class))).thenThrow(new RuntimeException("Unexpected error"));
+
+        assertThatThrownBy(() -> {
+            new EdgarDataLoaderTool(dataLoader).getFinancialStatements(new FinancialStatementRequest(TICKER, 3));
+        }).isExactlyInstanceOf(RuntimeException.class)
+                .hasMessage("Unexpected error");
     }
 
     private static Map<String, String> revenues() {
