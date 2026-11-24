@@ -85,3 +85,8 @@ Read MISSION.md, RESOURCES.md, NOTES.md, GLOSSARY.md, recent learning records, a
 ## Checkpoint A review conclusion (2026-11-23)
 - All 13 focused tool tests passed in the latest reviewed revision. Normalization/delegation, invalid inputs, upstream failure, and null request now have coverage; proceed to checkpoint B.
 - The learner correctly challenged the tutor's claim that deleting only the null guard would pass the current test. The next request.annualPeriods() access would throw NullPointerException and fail the exact IllegalArgumentException assertion. A fail-fast loader is an optional way to state no-delegation more explicitly, not a completion blocker. See the correction in learning record 0020.
+
+## Checkpoint B review status (2026-11-24)
+- Dependency, parameter retention, annotated tool, successful nested callback invocation, schema structure/required fields, and result JSON equality are implemented. JSON assertions were supplied by Codex at the learner's request, not independently demonstrated mastery.
+- After discussion of duplicate coverage, recommend one invalid-record callback test, such as blank ticker, to exercise rejection across the JSON conversion boundary. The annualPeriods=5 callback case is optional; the range rule already has direct Java coverage. Do not require the whole validation matrix at every layer.
+- Field-level descriptions are a possible refinement, not an additional completion gate.
