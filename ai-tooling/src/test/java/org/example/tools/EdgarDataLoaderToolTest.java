@@ -10,14 +10,17 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.ai.support.ToolCallbacks;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class EdgarDataLoaderToolTest {
@@ -35,6 +38,44 @@ class EdgarDataLoaderToolTest {
                             List.of(new FinancialStatements.StatementRow("Free cash flow", Map.of("2024", "0"))))
             )
     );
+
+    @Test
+    void testToolCallback() {
+        var actualToolCallback = ToolCallbacks.from(new EdgarDataLoaderTool(financialDataLoaderMock()));
+
+        assertThat(actualToolCallback).hasSize(1);
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        var toolDefinition = actualToolCallback[0].getToolDefinition();
+        assertThat(toolDefinition.name()).isEqualTo("getFinancialStatements");
+
+        var inputSchema = mapper.readTree(toolDefinition.inputSchema());
+        assertInputSchema(inputSchema, mapper);
+
+        var actualToolResponse = actualToolCallback[0].call("""
+        {"request":{"ticker":"AAPL", "annualPeriods":2}}
+        """);
+
+        assertThat(mapper.readTree(actualToolResponse))
+                .isEqualTo(mapper.valueToTree(TEST_FIXTURE));
+    }
+
+    private static void assertInputSchema(JsonNode inputSchema, ObjectMapper mapper) {
+        assertThatObject(inputSchema)
+                .extracting(
+                        schema -> schema.path("type").stringValue(),
+                        schema -> schema.path("properties").path("request").path("type").stringValue(),
+                        schema -> schema.path("properties").path("request").path("properties")
+                                .path("ticker").path("type").stringValue(),
+                        schema -> schema.path("properties").path("request").path("properties")
+                                .path("annualPeriods").path("type").stringValue(),
+                        schema -> Set.of(mapper.convertValue(schema.path("required"), String[].class)),
+                        schema -> Set.of(mapper.convertValue(schema.path("properties").path("request")
+                                .path("required"), String[].class)))
+                .containsExactly("object", "object", "string", "integer",
+                        Set.of("request"), Set.of("ticker", "annualPeriods"));
+    }
 
     @ParameterizedTest
     @MethodSource("validArguments")
