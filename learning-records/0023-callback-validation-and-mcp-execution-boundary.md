@@ -1,0 +1,3 @@
+# Callback validation and MCP execution boundary
+
+The learner added an invalid-record JSON callback test that asserts the wrapped validation failure; all 15 focused tool tests passed on 2026-11-25. In the closing discussion, they identified the MCP server application as the component executing the Java tool and independently anticipated timeout or lost-response failures across MCP. Their explanations of model-free callback invocation and what the tests establish needed refinement, so revisit those distinctions during the MCP implementation rather than assuming complete mastery from the passing tests.

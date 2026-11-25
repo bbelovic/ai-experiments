@@ -90,3 +90,9 @@ Read MISSION.md, RESOURCES.md, NOTES.md, GLOSSARY.md, recent learning records, a
 - Dependency, parameter retention, annotated tool, successful nested callback invocation, schema structure/required fields, and result JSON equality are implemented. JSON assertions were supplied by Codex at the learner's request, not independently demonstrated mastery.
 - After discussion of duplicate coverage, recommend one invalid-record callback test, such as blank ticker, to exercise rejection across the JSON conversion boundary. The annualPeriods=5 callback case is optional; the range rule already has direct Java coverage. Do not require the whole validation matrix at every layer.
 - Field-level descriptions are a possible refinement, not an additional completion gate.
+
+## Checkpoint B review conclusion (2026-11-25)
+- The learner added testToolCallbackWithInvalidRequestData: nested JSON with an empty ticker is rejected during record construction, with an assertion on the wrapped IllegalArgumentException root cause and message.
+- All 15 focused EdgarDataLoaderToolTest cases passed offline. Checkpoint B's implementation target is complete; an explicit verifyNoInteractions assertion on the invalid-input loader is optional clarification, not another completion gate. No additional validation matrix is required.
+- Before moving to MCP, revisit the lesson's recall prompts: why a callback needs no model, what the local test proves, and which extra boundary MCP introduces. Do not infer conceptual mastery solely from passing tests.
+- Closing discussion: learner correctly placed Java tool execution in the MCP server application and anticipated protocol timeout/lost-response failures. Callback independence and the precise guarantees of local tests were refined with feedback; revisit through practice. Lesson 5 is complete; next prepare session 6, exposing and invoking the tool through MCP without a model first.
