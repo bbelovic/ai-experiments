@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class EdgarDataLoaderToolTest {
+    private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String TICKER = "AAPL";
     private static final FinancialStatements TEST_FIXTURE = new FinancialStatements(
             TICKER,
@@ -40,28 +41,28 @@ class EdgarDataLoaderToolTest {
     );
 
     @Test
-    void testToolCallback() {
+    void testToolCallbackWithValidRequestData() {
         var actualToolCallback = ToolCallbacks.from(new EdgarDataLoaderTool(financialDataLoaderMock()));
 
         assertThat(actualToolCallback).hasSize(1);
 
-        ObjectMapper mapper = new ObjectMapper();
-
         var toolDefinition = actualToolCallback[0].getToolDefinition();
+
         assertThat(toolDefinition.name()).isEqualTo("getFinancialStatements");
 
-        var inputSchema = mapper.readTree(toolDefinition.inputSchema());
-        assertInputSchema(inputSchema, mapper);
+        var inputSchema = MAPPER.readTree(toolDefinition.inputSchema());
+
+        assertInputSchema(inputSchema);
 
         var actualToolResponse = actualToolCallback[0].call("""
         {"request":{"ticker":"AAPL", "annualPeriods":2}}
         """);
 
-        assertThat(mapper.readTree(actualToolResponse))
-                .isEqualTo(mapper.valueToTree(TEST_FIXTURE));
+        assertThat(MAPPER.readTree(actualToolResponse))
+                .isEqualTo(MAPPER.valueToTree(TEST_FIXTURE));
     }
 
-    private static void assertInputSchema(JsonNode inputSchema, ObjectMapper mapper) {
+    private static void assertInputSchema(JsonNode inputSchema) {
         assertThatObject(inputSchema)
                 .extracting(
                         schema -> schema.path("type").stringValue(),
@@ -70,11 +71,21 @@ class EdgarDataLoaderToolTest {
                                 .path("ticker").path("type").stringValue(),
                         schema -> schema.path("properties").path("request").path("properties")
                                 .path("annualPeriods").path("type").stringValue(),
-                        schema -> Set.of(mapper.convertValue(schema.path("required"), String[].class)),
-                        schema -> Set.of(mapper.convertValue(schema.path("properties").path("request")
+                        schema -> Set.of(EdgarDataLoaderToolTest.MAPPER.convertValue(schema.path("required"), String[].class)),
+                        schema -> Set.of(EdgarDataLoaderToolTest.MAPPER.convertValue(schema.path("properties").path("request")
                                 .path("required"), String[].class)))
                 .containsExactly("object", "object", "string", "integer",
                         Set.of("request"), Set.of("ticker", "annualPeriods"));
+    }
+
+    @Test
+    void testToolCallbackWithInvalidRequestData() {
+        var actualToolCallback = ToolCallbacks.from(new EdgarDataLoaderTool(financialDataLoaderMock()));
+
+        assertThatThrownBy(() -> {actualToolCallback[0].call("""
+        {"request":{"ticker":"", "annualPeriods":2}}
+        """);
+        }).hasRootCause(new IllegalArgumentException("Invalid stock ticker: []"));
     }
 
     @ParameterizedTest
