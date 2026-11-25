@@ -1,5 +1,7 @@
 # First local tool callback invocation
 
+Historical review: checkpoint B was subsequently completed (learning record 0023). The four-period cap and any requirement to reject annualPeriods=5 were removed on 2026-11-25 (learning record 0024).
+
 On 2026-11-24, the learner created a ToolCallback from the annotated tool, asserted one callback and its operation name, and successfully invoked it with nested request JSON. All 14 focused tests passed with fixture data and no model or SEC requests. This demonstrates the method-to-callback wiring and record input conversion for a valid case.
 
 Checkpoint B remains partial: the callback test only asserts nonempty output, not its JSON contents; it does not yet assert the generated nested schema/required fields or callback rejection before loader execution for excessive periods and invalid record data. Next practice should add those contract assertions rather than treating a nonempty string as evidence that serialization preserved null and zero values.

@@ -43,7 +43,7 @@ Recorded on 2026-11-09 at the learner's request. Revisit during implementation s
 
 Verified by source inspection: getFinancialStatements now returns FinancialStatements via return dataLoader.load(), and years has been renamed to annualPeriods throughout the wrapper.
 
-- [ ] Session 5: Document annualPeriods as the requested number of recent annual filing periods, not calendar-year selection; choose and validate an application-defined upper bound. Explain behavior when fewer periods are available.
+- [x] Session 5: Document annualPeriods as the requested number of most recent annual filing periods, not calendar-year selection; require a positive count and explain that fewer periods may be available. The arbitrary four-period upper bound was removed at the learner's request on 2026-11-25.
 - [x] Session 5: Make the tool's loader replaceable through constructor injection; request-specific ticker and period settings travel in FinancialStatementRequest. Missing test cases remain the learner's task.
 - [ ] Sessions 4-5: Move the SEC User-Agent from the hardcoded placeholder to external configuration.
 - [ ] Sessions 5-7: Define how the tool adapter exposes validation errors, unknown tickers, and upstream failures. Preserve unavailable metrics as null within successful results; do not convert an operation failure into successful empty data.
@@ -72,7 +72,7 @@ Read MISSION.md, RESOURCES.md, NOTES.md, GLOSSARY.md, recent learning records, a
 - Prepared lessons/0005-a-reliable-financial-tool.html. Current Checkpoint A: use the supplied request-record APIs and injected loader; finish the remaining behavior tests. Checkpoint B: add Spring AI annotations and verify a local JSON callback. The original factory exercise has been superseded by the agreed IoC design.
 - Keep the existing two-module arrangement. Work in ai-tooling; no chat-client-to-tooling dependency, model request, or MCP endpoint is needed yet.
 - Match the actual existing Spring AI 2.0.0 line for the tooling model library. ToolCallbacks/ToolCallback/ToolDefinition signatures and annotation locations were checked against cached 2.0.0 classes; current reference documentation was consulted for concepts.
-- Record constructor: reject blank ticker/nonpositive periods and normalize ticker. Tool: reject null request and enforce at most four periods. Services: accept larger positive period counts for other callers. External User-Agent wiring and client-facing error mapping remain for application/server integration. Authorization remains session 11.
+- Record constructor: reject blank ticker/nonpositive periods and normalize ticker. Tool: reject null request and delegate; no additional upper bound on the positive integer period count. External User-Agent wiring and client-facing error mapping remain for application/server integration. Authorization remains session 11.
 
 ## API refactor and exact resume point (2026-11-18)
 - Supplied by Codex at the learner's request: FinancialStatementRequest; load(request) on FinancialDataLoader; three EDGAR service methods taking the record; stable service-only constructor dependencies on EdgarDataLoader; no request values held on services. The existing CLI has been adapted.
@@ -88,7 +88,7 @@ Read MISSION.md, RESOURCES.md, NOTES.md, GLOSSARY.md, recent learning records, a
 
 ## Checkpoint B review status (2026-11-24)
 - Dependency, parameter retention, annotated tool, successful nested callback invocation, schema structure/required fields, and result JSON equality are implemented. JSON assertions were supplied by Codex at the learner's request, not independently demonstrated mastery.
-- After discussion of duplicate coverage, recommend one invalid-record callback test, such as blank ticker, to exercise rejection across the JSON conversion boundary. The annualPeriods=5 callback case is optional; the range rule already has direct Java coverage. Do not require the whole validation matrix at every layer.
+- After discussion of duplicate coverage, recommend one invalid-record callback test, such as blank ticker, to exercise rejection across the JSON conversion boundary. Do not require the whole validation matrix at every layer. The former annualPeriods=5 rejection case is obsolete following removal of the arbitrary upper bound on 2026-11-25.
 - Field-level descriptions are a possible refinement, not an additional completion gate.
 
 ## Checkpoint B review conclusion (2026-11-25)
@@ -96,3 +96,8 @@ Read MISSION.md, RESOURCES.md, NOTES.md, GLOSSARY.md, recent learning records, a
 - All 15 focused EdgarDataLoaderToolTest cases passed offline. Checkpoint B's implementation target is complete; an explicit verifyNoInteractions assertion on the invalid-input loader is optional clarification, not another completion gate. No additional validation matrix is required.
 - Before moving to MCP, revisit the lesson's recall prompts: why a callback needs no model, what the local test proves, and which extra boundary MCP introduces. Do not infer conceptual mastery solely from passing tests.
 - Closing discussion: learner correctly placed Java tool execution in the MCP server application and anticipated protocol timeout/lost-response failures. Callback independence and the precise guarantees of local tests were refined with feedback; revisit through practice. Lesson 5 is complete; next prepare session 6, exposing and invoking the tool through MCP without a model first.
+
+## Period-count policy update (2026-11-25)
+- The learner challenged the justification for the four-period maximum and requested its removal. Keep only annualPeriods >= 1 in FinancialStatementRequest; the tool retains its null-request guard. Any future operational cap needs an explicit requirement informed by response size or resource usage.
+- Codex implemented the requested change and updated the tests and lesson. Positive-count tests now include 1, 5, and Integer.MAX_VALUE; the successful JSON callback requests 5. Historical learning records retain their original review context with a supersession note for the removed cap.
+- Verification: all 17 focused EdgarDataLoaderToolTest cases passed offline outside the sandbox (Mockito agent attachment is restricted inside it); no model or SEC requests. git diff --check passed.
