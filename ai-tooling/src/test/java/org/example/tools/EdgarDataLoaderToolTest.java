@@ -42,7 +42,7 @@ class EdgarDataLoaderToolTest {
 
     @Test
     void testToolCallbackWithValidRequestData() {
-        var actualToolCallback = ToolCallbacks.from(new EdgarDataLoaderTool(financialDataLoaderMock()));
+        var actualToolCallback = ToolCallbacks.from(new EdgarDataLoaderTool(financialDataLoaderMock(5)));
 
         assertThat(actualToolCallback).hasSize(1);
 
@@ -55,7 +55,7 @@ class EdgarDataLoaderToolTest {
         assertInputSchema(inputSchema);
 
         var actualToolResponse = actualToolCallback[0].call("""
-        {"request":{"ticker":"AAPL", "annualPeriods":2}}
+        {"request":{"ticker":"AAPL", "annualPeriods":5}}
         """);
 
         assertThat(MAPPER.readTree(actualToolResponse))
@@ -80,7 +80,7 @@ class EdgarDataLoaderToolTest {
 
     @Test
     void testToolCallbackWithInvalidRequestData() {
-        var actualToolCallback = ToolCallbacks.from(new EdgarDataLoaderTool(financialDataLoaderMock()));
+        var actualToolCallback = ToolCallbacks.from(new EdgarDataLoaderTool(financialDataLoaderMock(2)));
 
         assertThatThrownBy(() -> {actualToolCallback[0].call("""
         {"request":{"ticker":"", "annualPeriods":2}}
@@ -91,7 +91,7 @@ class EdgarDataLoaderToolTest {
     @ParameterizedTest
     @MethodSource("validArguments")
     void validInputArgumentsAreAccepted(String ticker, int annualPeriods) {
-        FinancialDataLoader financialDataLoaderMock = financialDataLoaderMock();
+        FinancialDataLoader financialDataLoaderMock = financialDataLoaderMock(annualPeriods);
         EdgarDataLoaderTool tool = new EdgarDataLoaderTool(financialDataLoaderMock);
         FinancialStatements financialStatements = tool.getFinancialStatements(
                 new FinancialStatementRequest(ticker, annualPeriods));
@@ -100,9 +100,9 @@ class EdgarDataLoaderToolTest {
         verify(financialDataLoaderMock).load(new FinancialStatementRequest(ticker, annualPeriods));
     }
 
-    private FinancialDataLoader financialDataLoaderMock() {
+    private FinancialDataLoader financialDataLoaderMock(int annualPeriods) {
         FinancialDataLoader dataLoader = mock(FinancialDataLoader.class);
-        when(dataLoader.load(new FinancialStatementRequest(TICKER, 2))).thenReturn(TEST_FIXTURE);
+        when(dataLoader.load(new FinancialStatementRequest(TICKER, annualPeriods))).thenReturn(TEST_FIXTURE);
         return dataLoader;
     }
 
@@ -110,7 +110,10 @@ class EdgarDataLoaderToolTest {
         return Stream.of(
                 Arguments.of("AAPL", 2),
                 Arguments.of("aapl", 2),
-                Arguments.of("  aapl ", 2)
+                Arguments.of("  aapl ", 2),
+                Arguments.of("AAPL", 1),
+                Arguments.of("AAPL", 5),
+                Arguments.of("AAPL", Integer.MAX_VALUE)
         );
     }
 
@@ -128,8 +131,8 @@ class EdgarDataLoaderToolTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0, -1, 5})
-    void annualPeriodsInAcceptedRange(int annualPeriods) {
+    @ValueSource(ints = {0, -1})
+    void nonpositiveAnnualPeriodsAreRejected(int annualPeriods) {
         Assertions.assertThatThrownBy(() -> {
                     new EdgarDataLoaderTool(_ -> {
                         throw new AssertionError("Loader should not be called with invalid input.");
